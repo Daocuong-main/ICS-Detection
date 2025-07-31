@@ -1,3 +1,11 @@
 models/model_secbert.pt
 preprocessed_data_full_features.pkl
 datasets/mitm_hmi_scapy_modify_1plc_12h_flow_label.csv
+datasets/hmi_normal_6h_flow_label.csv
+datasets/mitm_hmi_forward_1plc_6h_flow_label.csv
+datasets/mitm_hmi_scapy_forward_1plc_6h_flow_label.csv
+datasets/mitm_hmi_forward_36plc_6h_flow_label.csv
+datasets/mitm_hmi_scapy_modify_1plc_6h_flow_label.csv
+preprocessed_data1.pkl
+preprocessed_data_v4.pkl
+preprocessed_data_v6.pkl
