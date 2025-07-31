@@ -3,50 +3,59 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import precision_recall_curve, roc_curve, auc
 
-# Directories
-PREDICTIONS_DIR = 'predictions_v3'
-RESULTS_DIR = 'results_v3'
+PREDICTIONS_DIR = 'predictions'
+RESULTS_DIR = 'results_combined'
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
-# List of experiments
+# List of experiments and corresponding prediction files
 experiments = [
-    ('Bagged_LSTM', 'bagged_lstm_probs.npy'),
-    ('Bagged_XGB', 'bagged_xgb_probs.npy'),
-    ('Combined_Ensemble', 'combined_probs.npy')
+    ('DecisionTree', 'DecisionTree.npz'),
+    ('RandomForest', 'RandomForest.npz'),
+    ('XGBoost', 'XGBoost.npz'),
+    ('LSTM', 'LSTM.npz'),
+    ('BiLSTM', 'BiLSTM.npz'),
+    ('TabTransformer', 'TabTransformer.npz'),
+    ('Bagged_LSTM', 'Bagged_LSTM.npz'),
+    ('Bagged_XGB', 'Bagged_XGB.npz'),
+    ('Combined_Ensemble', 'Combined_Ensemble.npz'),
 ]
 
-# Load ground truth labels
-y_test = np.load(os.path.join(PREDICTIONS_DIR, 'y_test.npy'))
-
-# Initialize plots
 plt.figure(figsize=(10, 5))
-
-# PR Curve
+# Precision-Recall Curve
 plt.subplot(1, 2, 1)
 for name, file in experiments:
-    probs = np.load(os.path.join(PREDICTIONS_DIR, file))
-    precision, recall, _ = precision_recall_curve(y_test, probs)
-    plt.plot(recall, precision, label=f'{name} (AUC={auc(recall, precision):.2f})')
-plt.title('Precision-Recall Curve')
+    path = os.path.join(PREDICTIONS_DIR, file)
+    if not os.path.exists(path):
+        continue
+    data = np.load(path)
+    y_true = data['y_true']
+    y_prob = data['y_prob']
+    precision, recall, _ = precision_recall_curve(y_true, y_prob)
+    pr_auc = auc(recall, precision)
+    plt.plot(recall, precision, label=f'{name} (AUC={pr_auc:.2f})')
 plt.xlabel('Recall')
 plt.ylabel('Precision')
+plt.title('Precision-Recall Curve')
 plt.legend()
 
 # ROC Curve
 plt.subplot(1, 2, 2)
 for name, file in experiments:
-    probs = np.load(os.path.join(PREDICTIONS_DIR, file))
-    fpr, tpr, _ = roc_curve(y_test, probs)
-    plt.plot(fpr, tpr, label=f'{name} (AUC={auc(fpr, tpr):.2f})')
+    path = os.path.join(PREDICTIONS_DIR, file)
+    if not os.path.exists(path):
+        continue
+    data = np.load(path)
+    y_true = data['y_true']
+    y_prob = data['y_prob']
+    fpr, tpr, _ = roc_curve(y_true, y_prob)
+    roc_auc = auc(fpr, tpr)
+    plt.plot(fpr, tpr, label=f'{name} (AUC={roc_auc:.2f})')
 plt.plot([0, 1], [0, 1], '--', color='gray')
-plt.title('ROC Curve')
 plt.xlabel('False Positive Rate')
 plt.ylabel('True Positive Rate')
+plt.title('ROC Curve')
 plt.legend()
 
-# Save combined plot
 plt.tight_layout()
-plt.savefig(os.path.join(RESULTS_DIR, 'combined_curves.pdf'))
-plt.show()
-
-print("Combined PR and ROC curves have been saved to 'results_v3/combined_curves.pdf'.")
+plt.savefig(os.path.join(RESULTS_DIR, 'all_models_curves.pdf'))
+print(f'Combined curves saved to {os.path.join(RESULTS_DIR, "all_models_curves.pdf")}')
