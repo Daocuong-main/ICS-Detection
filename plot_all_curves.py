@@ -20,9 +20,8 @@ experiments = [
     ('Combined_Ensemble', 'Combined_Ensemble.npz'),
 ]
 
-plt.figure(figsize=(10, 5))
-# Precision-Recall Curve
-plt.subplot(1, 2, 1)
+# --------- Precision-Recall Curve Figure ---------
+plt.figure(figsize=(6, 5))
 for name, file in experiments:
     path = os.path.join(PREDICTIONS_DIR, file)
     if not os.path.exists(path):
@@ -37,9 +36,12 @@ plt.xlabel('Recall')
 plt.ylabel('Precision')
 plt.title('Precision-Recall Curve')
 plt.legend()
+plt.tight_layout()
+plt.savefig(os.path.join(RESULTS_DIR, 'precision_recall_curve.pdf'))
+print(f'Precision-Recall curve saved to {os.path.join(RESULTS_DIR, "precision_recall_curve.pdf")}')
 
-# ROC Curve
-plt.subplot(1, 2, 2)
+# --------- ROC Curve Figure ---------
+plt.figure(figsize=(6, 5))
 for name, file in experiments:
     path = os.path.join(PREDICTIONS_DIR, file)
     if not os.path.exists(path):
@@ -55,7 +57,6 @@ plt.xlabel('False Positive Rate')
 plt.ylabel('True Positive Rate')
 plt.title('ROC Curve')
 plt.legend()
-
 plt.tight_layout()
-plt.savefig(os.path.join(RESULTS_DIR, 'all_models_curves.pdf'))
-print(f'Combined curves saved to {os.path.join(RESULTS_DIR, "all_models_curves.pdf")}')
+plt.savefig(os.path.join(RESULTS_DIR, 'roc_curve.pdf'))
+print(f'ROC curve saved to {os.path.join(RESULTS_DIR, "roc_curve.pdf")}')
