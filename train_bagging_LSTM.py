@@ -35,8 +35,6 @@ torch.manual_seed(SEED)
 
 # ====== LOAD DATA ======
 X_train, X_val, X_test, y_train, y_val, y_test, *_ = joblib.load(DATA_PATH)
-X_test = X_train
-y_test = y_train
 # ====== DATASET & DATALOADER ======
 class TabularSequenceDataset(Dataset):
     def __init__(self, X, y):

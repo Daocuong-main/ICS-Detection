@@ -31,10 +31,10 @@ for dirpath, dirnames, filenames in os.walk(root_dir):
             # Prevent overwrite
             base, ext = os.path.splitext(new_name)
             counter = 1
-            while os.path.exists(dest_path):
-                new_name = f"{base}_{counter}{ext}"
-                dest_path = os.path.join(target_dir, new_name)
-                counter += 1
+            # while os.path.exists(dest_path):
+            #     new_name = f"{base}_{counter}{ext}"
+            #     dest_path = os.path.join(target_dir, new_name)
+            #     counter += 1
 
             shutil.copy2(source_path, dest_path)
             print(f"Copied: {source_path} → {dest_path}")
