@@ -195,9 +195,9 @@ with open(f'{RESULTS_DIR}/classification_report.json', 'w') as f:
 print(classification_report(all_labels, all_preds))
 
 # ---- Confusion matrix ----
-cm = confusion_matrix(all_labels, all_preds)
+cm = confusion_matrix(all_labels, all_preds, normalize='true')
 disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-disp.plot()
+disp.plot(values_format='.2%')
 plt.title('Confusion Matrix - SecBERT')
 plt.savefig(f'{RESULTS_DIR}/confusion_matrix.pdf')
 plt.savefig(f'{RESULTS_DIR}/confusion_matrix.svg')

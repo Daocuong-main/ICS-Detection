@@ -117,10 +117,10 @@ def evaluate_and_plot(y_true, y_pred, y_prob, out_dir, name):
         json.dump(rpt, f, indent=4)
     print(f"\n{name} Report:\n", classification_report(y_true, y_pred))
     print(f"{name} F1-micro:", f1_score(y_true, y_pred, average='micro'))
-    # confusion
-    cm = confusion_matrix(y_true, y_pred)
+    # confusion (normalized as percentage)
+    cm = confusion_matrix(y_true, y_pred, normalize='true')
     disp = ConfusionMatrixDisplay(cm)
-    disp.plot(); plt.title(f"{name} Confusion"); plt.savefig(f"{out_dir}/{name}_cm.pdf"); plt.close()
+    disp.plot(values_format='.2%'); plt.title(f"{name} Confusion"); plt.savefig(f"{out_dir}/{name}_cm.pdf"); plt.close()
     # ROC
     fpr, tpr, _ = roc_curve(y_true, y_prob)
     auc = roc_auc_score(y_true, y_prob)

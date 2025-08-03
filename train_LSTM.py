@@ -125,10 +125,10 @@ def evaluate_lstm(model, test_loader, device, results_dir=RESULTS_DIR):
         json.dump(report, f, indent=4)
     print(classification_report(all_labels, all_preds))
     print("F1-micro:", f1_score(all_labels, all_preds, average='micro'))
-    # Confusion matrix
-    cm = confusion_matrix(all_labels, all_preds)
+    # Confusion matrix (normalized as percentage)
+    cm = confusion_matrix(all_labels, all_preds, normalize='true')
     disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-    disp.plot()
+    disp.plot(values_format='.2%')
     plt.title('Confusion Matrix - LSTM')
     plt.savefig(f'{results_dir}/confusion_matrix.pdf')
     plt.savefig(f'{results_dir}/confusion_matrix.svg')
