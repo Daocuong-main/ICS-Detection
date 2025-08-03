@@ -15,7 +15,7 @@ from sklearn.metrics import precision_recall_curve, roc_curve, precision_score, 
 import utils
 from data_loader import load_train_data, load_test_data
 import metrics
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import pandas as pd
 import math
 from preprocess_testdata import load_and_preprocess_test
@@ -608,8 +608,13 @@ def hyperparameter_search(event_detector,config, model_type, Xval, Xtest, Ytest,
         fpr, tpr, _ = roc_curve(Ytest_test, final_Yhat)
         # precision-recall curve
         precision, recall, _ = precision_recall_curve(Ytest_test, final_Yhat)
-        cm = confusion_matrix(Ytest_test, final_Yhat)
-        df_cm = pd.DataFrame(cm, index=["Actual 0", "Actual 1"], columns=["Predicted 0", "Predicted 1"])
+        cm = confusion_matrix(Ytest_test, final_Yhat, normalize='true')
+        df_cm = pd.DataFrame(cm * 100, index=["Actual 0", "Actual 1"], columns=["Predicted 0", "Predicted 1"])
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+        disp.plot(values_format='.2%')
+        plt.title(f'Confusion Matrix - {model_name}')
+        plt.savefig(f"results/{model_name}_confusion_matrix.pdf")
+        plt.close()
         # output this to a file
         with open(f"results/{model_name}-classification_report.txt", "w") as f:
             # f.write(f"test_errors: {test_errors}\n")

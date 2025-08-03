@@ -130,10 +130,10 @@ def evaluate_and_plot(y_true, y_pred, y_prob, out_dir, name):
     # F1
     print(f"[{name}] F1-micro:", f1_score(y_true, y_pred, average='micro'))
 
-    # confusion
-    cm = confusion_matrix(y_true, y_pred)
+    # confusion (normalized as percentage)
+    cm = confusion_matrix(y_true, y_pred, normalize='true')
     disp = ConfusionMatrixDisplay(cm)
-    disp.plot()
+    disp.plot(values_format='.2%')
     plt.title(f"Confusion Matrix - {name}")
     plt.savefig(f"{out_dir}/{name}_confusion_matrix.pdf")
     plt.close()

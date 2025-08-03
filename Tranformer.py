@@ -242,9 +242,9 @@ f1_micro = f1_score(all_labels, all_preds, average='micro')
 print("F1-micro:", f1_micro)
 
 # ---- Confusion matrix ----
-cm = confusion_matrix(all_labels, all_preds)
+cm = confusion_matrix(all_labels, all_preds, normalize='true')
 disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-disp.plot()
+disp.plot(values_format='.2%')
 plt.title('Confusion Matrix - Tabular Transformer')
 plt.savefig(f'{RESULTS_DIR}/confusion_matrix.pdf')
 plt.savefig(f'{RESULTS_DIR}/confusion_matrix.svg')

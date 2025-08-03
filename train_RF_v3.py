@@ -60,8 +60,8 @@ with open(f"{RESULTS_DIR}/classification_report.json", "w") as f:
 print(classification_report(y_test_fixed, preds_fixed))
 print("F1‑micro:", f1_score(y_test_fixed, preds_fixed, average='micro'))
 
-cm = confusion_matrix(y_test_fixed, preds_fixed)
-ConfusionMatrixDisplay(cm).plot()
+cm = confusion_matrix(y_test_fixed, preds_fixed, normalize='true')
+ConfusionMatrixDisplay(cm).plot(values_format='.2%')
 plt.title("Confusion Matrix – Random Forest (labels fixed)")
 plt.savefig(f"{RESULTS_DIR}/confusion_matrix.pdf")
 plt.savefig(f"{RESULTS_DIR}/confusion_matrix.svg")
