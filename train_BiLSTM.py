@@ -10,8 +10,8 @@ import json
 
 # ====== CONFIG ======
 DATA_PATH = 'preprocessed_data_v4.pkl'
-MODEL_SAVE_PATH = 'models/model_bilstm.pt'
-RESULTS_DIR = 'results/bilstm'
+MODEL_SAVE_PATH = 'models_v4/model_bilstm.pt'
+RESULTS_DIR = 'results_v4/bilstm'
 os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
 

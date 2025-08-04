@@ -17,7 +17,7 @@ from sklearn.utils import resample
 # ====== CONFIG ======
 DATA_PATH        = 'preprocessed_data_v4.pkl'
 MODELS_DIR       = 'models'
-RESULTS_DIR      = 'results'
+RESULTS_DIR      = 'results_v4'
 os.makedirs(MODELS_DIR, exist_ok=True)
 for sub in ['lstm_bag', 'xgb_bag', 'combined']:
     os.makedirs(os.path.join(RESULTS_DIR, sub), exist_ok=True)

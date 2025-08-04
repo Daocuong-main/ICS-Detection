@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 DATA_PATH        = 'preprocessed_data_v4.pkl'
 MODEL_LSTM_PATH  = 'models/model_lstm.pt'
 MODEL_XGB_PATH   = 'models/model_xgb.pkl'
-RESULTS_DIR      = 'results'
+RESULTS_DIR      = 'results_v4'
 LSTM_RESULTS_DIR = os.path.join(RESULTS_DIR, 'lstm')
 XGB_RESULTS_DIR  = os.path.join(RESULTS_DIR, 'xgb')
 ENS_RESULTS_DIR  = os.path.join(RESULTS_DIR, 'ensemble')

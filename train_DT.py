@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 
 # ====== CONFIG ======
 DATA_PATH = 'preprocessed_data_v4.pkl' 
-MODEL_SAVE_PATH = 'models/model_dtree.pkl'
-RESULTS_DIR = 'results/decisiontree'
+MODEL_SAVE_PATH = 'models_v4/model_dtree.pkl'
+RESULTS_DIR = 'results_v4/decisiontree'
 os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
 

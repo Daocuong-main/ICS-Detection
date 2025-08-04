@@ -8,8 +8,8 @@ import json
 
 # ====== CONFIG ======
 DATA_PATH = 'preprocessed_data_v4.pkl'  # Đổi tên nếu bạn lưu file khác
-MODEL_SAVE_PATH = 'models/model_rf.pkl'
-RESULTS_DIR = 'results/randomforest'
+MODEL_SAVE_PATH = 'models_v4/model_rf.pkl'
+RESULTS_DIR = 'results_v4/randomforest'
 os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
