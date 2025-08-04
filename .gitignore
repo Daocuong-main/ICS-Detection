@@ -25,3 +25,9 @@ datasets/mitm_hmi_scapy_modify_1plc_6h_flow_label.csv
 preprocessed_data1.pkl
 preprocessed_data_v4.pkl
 preprocessed_data_v6.pkl
+# Ignore heavy artefacts
+datasets/
+models/
+*.pt
+*.pkl
+*.csv
