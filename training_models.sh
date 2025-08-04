@@ -1,43 +1,76 @@
 #!/bin/bash
 
-echo "Running MLP.py"
+echo "Starting MLP.py"
 python MLP.py
+echo "Finished MLP.py"
+echo "----------------------------------------"
 
-echo "Running SecBert_Classificastion.py"
+echo "Starting SecBert_Classificastion.py"
 python SecBert_Classificastion.py
+echo "Finished SecBert_Classificastion.py"
+echo "----------------------------------------"
 
-echo "Running train_bagging_LSTM.py"
-python train_bagging_LSTM.py
+echo "Starting SecBert.py"
+python SecBert.py
+echo "Finished SecBert.py"
+echo "----------------------------------------"
 
-echo "Running train_bagging_LSTM_test.py"
+echo "Starting train_bagging_LSTM_test.py"
 python train_bagging_LSTM_test.py
+echo "Finished train_bagging_LSTM_test.py"
+echo "----------------------------------------"
 
-echo "Running train_bagging_LSTM_v3.py"
+echo "Starting train_bagging_LSTM_v3.py"
 python train_bagging_LSTM_v3.py
+echo "Finished train_bagging_LSTM_v3.py"
+echo "----------------------------------------"
 
-echo "Running train_BiLSTM.py"
+echo "Starting train_bagging_LSTM.py"
+python train_bagging_LSTM.py
+echo "Finished train_bagging_LSTM.py"
+echo "----------------------------------------"
+
+echo "Starting train_BiLSTM.py"
 python train_BiLSTM.py
+echo "Finished train_BiLSTM.py"
+echo "----------------------------------------"
 
-echo "Running train_DT.py"
+echo "Starting train_DT.py"
 python train_DT.py
+echo "Finished train_DT.py"
+echo "----------------------------------------"
 
-echo "Running train_LSTM.py"
+echo "Starting train_LSTM.py"
 python train_LSTM.py
+echo "Finished train_LSTM.py"
+echo "----------------------------------------"
 
-echo "Running train_RF.py"
-python train_RF.py
-
-echo "Running train_RF_v3.py"
+echo "Starting train_RF_v3.py"
 python train_RF_v3.py
+echo "Finished train_RF_v3.py"
+echo "----------------------------------------"
 
-echo "Running train_xgboost_lstm_2.py"
-python train_xgboost_lstm_2.py
+echo "Starting train_RF.py"
+python train_RF.py
+echo "Finished train_RF.py"
+echo "----------------------------------------"
 
-echo "Running train_XGBoost.py"
+echo "Starting train_xgboost_lstm_2_v3.py"
+python train_xgboost_lstm_2_v3.py
+echo "Finished train_xgboost_lstm_2_v3.py"
+echo "----------------------------------------"
+
+echo "Starting train_xgboost_lstm.py"
+python train_xgboost_lstm.py
+echo "Finished train_xgboost_lstm.py"
+echo "----------------------------------------"
+
+echo "Starting train_XGBoost.py"
 python train_XGBoost.py
+echo "Finished train_XGBoost.py"
+echo "----------------------------------------"
 
-echo "Running Tranformer.py"
+echo "Starting Tranformer.py"
 python Tranformer.py
-
-echo "Running tong_hop.py"
-python tong_hop.py
+echo "Finished Tranformer.py"
+echo "----------------------------------------"

@@ -2,7 +2,7 @@ import os
 import shutil
 
 # Define root and destination directory
-root_dir = '/home/bkcs/HDD/Dao_Cuong/ICS-Detection'
+root_dir = '.'
 target_dir = os.path.join(root_dir, 'all_pdfs_collected')
 os.makedirs(target_dir, exist_ok=True)
 

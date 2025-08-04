@@ -38,6 +38,21 @@ class TabularDataset(Dataset):
 def save_npz(name, y_true, y_prob):
     np.savez(os.path.join(PRED_DIR, f'{name}.npz'), y_true=np.asarray(y_true), y_prob=np.asarray(y_prob))
 
+class SimpleMLP(nn.Module):
+    def __init__(self, input_dim, hidden_dims=(128, 64, 32), num_classes=2, dropout=0.2):
+        super().__init__()
+        layers = []
+        prev = input_dim
+        for h in hidden_dims:
+            layers.append(nn.Linear(prev, h))
+            layers.append(nn.ReLU())
+            layers.append(nn.Dropout(dropout))
+            prev = h
+        layers.append(nn.Linear(prev, num_classes))
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.net(x)
 # =====================
 # Sklearn models
 # =====================
@@ -188,7 +203,105 @@ def gen_tabtransformer():
             out = model(x)
             probs.extend(torch.softmax(out,1)[:,1].cpu().numpy())
     save_npz('TabTransformer', y_test, probs)
+def gen_mlp():
+    path = os.path.join(PRED_DIR, 'MLP.npz')
+    if os.path.exists(path):
+        return
+    model_path = 'models/model_mlp.pt'
+    scaler_path = 'scalers/mlp_scaler.pkl'
+    if not os.path.exists(model_path) or not os.path.exists(scaler_path):
+        print('MLP model or scaler not found, skipping.')
+        return
+    X_train, X_val, X_test, y_train, y_val, y_test, *_ = joblib.load('preprocessed_data1.pkl')
+    scaler = joblib.load(scaler_path)
+    X_test_scaled = scaler.transform(X_test)
+    test_loader = DataLoader(TabularDataset(X_test_scaled, y_test), batch_size=64, shuffle=False)
+    device = torch.device('cpu')
+    model = SimpleMLP(X_test_scaled.shape[1])
+    model.load_state_dict(torch.load(model_path, map_location=device))
+    model.to(device).eval()
+    probs = []
+    with torch.no_grad():
+        for b in test_loader:
+            x = b['inputs'].to(device)
+            out = model(x)
+            probs.extend(torch.softmax(out,1)[:,1].cpu().numpy())
+    save_npz('MLP', y_test, probs)
 
+
+def gen_secbert():
+    path = os.path.join(PRED_DIR, 'SecBERT.npz')
+    if os.path.exists(path):
+        return
+    model_path = 'models/model_secbert.pt'
+    scaler_path = 'scalers/secbert_scaler.pkl'
+    if not os.path.exists(model_path) or not os.path.exists(scaler_path):
+        print('SecBERT model or scaler not found, skipping.')
+        return
+    try:
+        from transformers import BertModel
+    except Exception:
+        print('Transformers library not available, skipping SecBERT.')
+        return
+    X_train, X_val, X_test, y_train, y_val, y_test, *_ = joblib.load('preprocessed_data1.pkl')
+    scaler = joblib.load(scaler_path)
+    X_test_scaled = scaler.transform(X_test)
+    SEQ_LEN = 1
+    def create_sequences(X, y, seq_len):
+        Xs, ys = [], []
+        for i in range(seq_len, len(X)):
+            Xs.append(X[i-seq_len:i])
+            ys.append(y[i])
+        return np.array(Xs), np.array(ys)
+    y_arr = y_test.values if hasattr(y_test, 'values') else y_test
+    X_seq, y_seq = create_sequences(X_test_scaled, y_arr, SEQ_LEN)
+    class SeqDataset(Dataset):
+        def __init__(self, X, y):
+            self.X = torch.tensor(X, dtype=torch.float32)
+            self.y = torch.tensor(y, dtype=torch.long)
+        def __len__(self):
+            return len(self.X)
+        def __getitem__(self, idx):
+            return {'inputs': self.X[idx], 'labels': self.y[idx]}
+    test_loader = DataLoader(SeqDataset(X_seq, y_seq), batch_size=64, shuffle=False)
+    class SecBERTClassifier(nn.Module):
+        def __init__(self, input_dim, hidden_size=768, seq_len=1, num_classes=2):
+            super().__init__()
+            self.embedding = nn.Linear(input_dim, hidden_size)
+            pe = self.sinusoidal_positional_embedding(seq_len + 1, hidden_size)
+            self.register_buffer('pos_embedding', pe)
+            self.cls_token = nn.Parameter(torch.zeros(1, 1, hidden_size))
+            nn.init.trunc_normal_(self.cls_token, std=0.02)
+            self.bert = BertModel.from_pretrained('jackaduma/SecBERT')
+            self.output_layer = nn.Linear(hidden_size, num_classes)
+        def sinusoidal_positional_embedding(self, seq_len, hidden_dim):
+            position = torch.arange(0, seq_len).unsqueeze(1)
+            div_term = torch.exp(torch.arange(0, hidden_dim, 2) * (-np.log(10000.0) / hidden_dim))
+            pe = torch.zeros(seq_len, hidden_dim)
+            pe[:, 0::2] = torch.sin(position * div_term)
+            pe[:, 1::2] = torch.cos(position * div_term)
+            return pe.unsqueeze(0)
+        def forward(self, x):
+            batch_size = x.size(0)
+            x = self.embedding(x)
+            cls_expanded = self.cls_token.expand(batch_size, 1, -1)
+            x = torch.cat([cls_expanded, x], dim=1)
+            x = x + self.pos_embedding[:, :x.size(1)]
+            attn = torch.ones(x.size(0), x.size(1), dtype=torch.long, device=x.device)
+            outputs = self.bert(inputs_embeds=x, attention_mask=attn)
+            cls_state = outputs.last_hidden_state[:, 0, :]
+            return self.output_layer(cls_state)
+    device = torch.device('cpu')
+    model = SecBERTClassifier(input_dim=X_test_scaled.shape[1], seq_len=SEQ_LEN, num_classes=2)
+    model.load_state_dict(torch.load(model_path, map_location=device))
+    model.to(device).eval()
+    probs = []
+    with torch.no_grad():
+        for b in test_loader:
+            x = b['inputs'].to(device)
+            logits = model(x)
+            probs.extend(torch.softmax(logits, dim=1)[:,1].cpu().numpy())
+    save_npz('SecBERT', y_seq, probs)
 # =====================
 # Bagged ensemble predictions (already saved)
 # =====================
@@ -211,5 +324,7 @@ if __name__ == '__main__':
     gen_lstm()
     gen_bilstm()
     gen_tabtransformer()
+    gen_mlp()
+    gen_secbert()
     gen_bagging()
     print('Prediction files generated in', PRED_DIR)
