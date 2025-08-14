@@ -1,83 +1,154 @@
+"""Training and evaluation script for RandomForest classifier.
+
+This script trains the model once and caches both the trained model and
+prediction artifacts. Subsequent executions reuse cached results and only
+regenerate plots when needed.
+"""
+
+import json
 import os
+import time
+
 import joblib
+import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay, f1_score
-import matplotlib.pyplot as plt
-import json
+from sklearn.metrics import (
+    ConfusionMatrixDisplay,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    precision_recall_curve,
+    roc_auc_score,
+    roc_curve,
+)
 
-# ====== CONFIG ======
-DATA_PATH = 'data/processed/preprocessed_data_v4.pkl'  # Đổi tên nếu bạn lưu file khác
-MODEL_SAVE_PATH = 'models/models_v4/model_rf.pkl'
-RESULTS_DIR = 'outputs/results_v4/randomforest'
+DATA_PATH = "data/processed/preprocessed_data_v4.pkl"
+MODEL_SAVE_PATH = "models/models_v4/model_rf.pkl"
+RESULTS_DIR = "outputs/results_v4/randomforest"
+PREDICTIONS_PATH = os.path.join(RESULTS_DIR, "predictions.npz")
+REPORT_PATH = os.path.join(RESULTS_DIR, "classification_report.json")
+
 os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
-# ====== LOAD DATA ======
-# Giả sử data đã split/scale thành:
-# X_train, X_val, X_test, y_train, y_val, y_test
-X_train, X_val, X_test, y_train, y_val, y_test, *_ = joblib.load(DATA_PATH)
+SEED = 42
 
-# Có thể concat X_train và X_val nếu muốn train trên all train data:
-X_tr = np.concatenate([X_train, X_val], axis=0)
-y_tr = np.concatenate([y_train, y_val], axis=0)
 
-# ====== TRAIN RF ======
-rf = RandomForestClassifier(
-    n_estimators=100,
-    max_depth=None,
-    random_state=42,
-    n_jobs=-1
-)
-rf.fit(X_tr, y_tr)
-joblib.dump(rf, MODEL_SAVE_PATH)
+def load_data():
+    """Load train/validation/test splits from disk."""
+    return joblib.load(DATA_PATH)
 
-# ====== EVALUATE RF ======
-preds = rf.predict(X_test)
-probs = rf.predict_proba(X_test)[:, 1]  # Xác suất class 1 (binary)
 
-# Classification report
-report = classification_report(y_test, preds, output_dict=True)
-with open(f"{RESULTS_DIR}/classification_report.json", "w") as f:
-    json.dump(report, f, indent=4)
-print(classification_report(y_test, preds))
-print("F1-micro:", f1_score(y_test, preds, average='micro'))
+def train_model(X_tr: np.ndarray, y_tr: np.ndarray) -> tuple[RandomForestClassifier, int]:
+    """Train RandomForest and return model with training time in ns."""
+    model = RandomForestClassifier(
+        n_estimators=100,
+        max_depth=None,
+        random_state=SEED,
+        n_jobs=-1,
+    )
+    start = time.perf_counter_ns()
+    model.fit(X_tr, y_tr)
+    end = time.perf_counter_ns()
+    joblib.dump(model, MODEL_SAVE_PATH)
+    return model, end - start
 
-# Confusion Matrix (normalized as percentage)
-cm = confusion_matrix(y_test, preds, normalize='true')
-disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-disp.plot(values_format='.2%')
-plt.title("Confusion Matrix - Random Forest")
-plt.savefig(f"{RESULTS_DIR}/confusion_matrix.pdf")
-plt.savefig(f"{RESULTS_DIR}/confusion_matrix.svg")
-plt.close()
 
-# ROC Curve (nếu bạn muốn)
-from sklearn.metrics import roc_curve, roc_auc_score, precision_recall_curve
+def evaluate_model(
+    model: RandomForestClassifier, X_test: np.ndarray, y_test: np.ndarray, train_time_ns: int
+) -> int:
+    """Evaluate the model, save metrics/predictions and return evaluation time."""
+    start = time.perf_counter_ns()
+    preds = model.predict(X_test)
+    probs = model.predict_proba(X_test)[:, 1]
+    end = time.perf_counter_ns()
+    eval_time_ns = end - start
 
-fpr, tpr, _ = roc_curve(y_test, probs)
-auc_score = roc_auc_score(y_test, probs)
-plt.figure()
-plt.plot(fpr, tpr, label=f"AUC = {auc_score:.2f}")
-plt.plot([0, 1], [0, 1], linestyle='--', color='gray')
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.title('ROC Curve - Random Forest')
-plt.legend()
-plt.savefig(f"{RESULTS_DIR}/roc_curve.pdf")
-plt.savefig(f"{RESULTS_DIR}/roc_curve.svg")
-plt.close()
+    np.savez(PREDICTIONS_PATH, y_test=y_test, preds=preds, probs=probs)
 
-# Precision-Recall Curve
-precision, recall, _ = precision_recall_curve(y_test, probs)
-plt.figure()
-plt.plot(recall, precision, label='Random Forest')
-plt.xlabel('Recall')
-plt.ylabel('Precision')
-plt.title('Precision-Recall Curve - Random Forest')
-plt.legend()
-plt.savefig(f"{RESULTS_DIR}/pr_curve.pdf")
-plt.savefig(f"{RESULTS_DIR}/pr_curve.svg")
-plt.close()
+    report = classification_report(y_test, preds, output_dict=True)
+    report["timing"] = {
+        "train_time_ns": train_time_ns,
+        "evaluate_time_ns": eval_time_ns,
+    }
+    with open(REPORT_PATH, "w") as f:
+        json.dump(report, f, indent=4)
 
-print(f"✅ Kết quả và hình ảnh lưu tại: {RESULTS_DIR}")
+    print("=== RandomForest Classification Report ===")
+    print(classification_report(y_test, preds))
+    print("F1-micro:", f1_score(y_test, preds, average="micro"))
+    print(f"Train time: {train_time_ns / 1e9:.4f}s  ({train_time_ns} ns)")
+    print(f"Eval time:  {eval_time_ns / 1e9:.4f}s  ({eval_time_ns} ns)")
+
+    cm = confusion_matrix(y_test, preds, normalize="true")
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+    disp.plot(values_format=".2%")
+    plt.title("Confusion Matrix - RandomForest")
+    plt.savefig(f"{RESULTS_DIR}/confusion_matrix.pdf")
+    plt.savefig(f"{RESULTS_DIR}/confusion_matrix.svg")
+    plt.close()
+
+    plot_curves(y_test, probs)
+    return eval_time_ns
+
+
+def plot_curves(y_true: np.ndarray, probs: np.ndarray) -> None:
+    """Draw ROC and PR curves into a single figure."""
+    fpr, tpr, _ = roc_curve(y_true, probs)
+    auc_score = roc_auc_score(y_true, probs)
+    precision, recall, _ = precision_recall_curve(y_true, probs)
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+    axes[0].plot(fpr, tpr, label=f"AUC = {auc_score:.2f}")
+    axes[0].plot([0, 1], [0, 1], linestyle="--", color="gray")
+    axes[0].set_xlabel("False Positive Rate")
+    axes[0].set_ylabel("True Positive Rate")
+    axes[0].set_title("ROC Curve")
+    axes[0].legend()
+
+    axes[1].plot(recall, precision, label="RandomForest")
+    axes[1].set_xlabel("Recall")
+    axes[1].set_ylabel("Precision")
+    axes[1].set_title("Precision-Recall Curve")
+    axes[1].legend()
+
+    fig.tight_layout()
+    fig.savefig(f"{RESULTS_DIR}/roc_pr_curves.pdf")
+    fig.savefig(f"{RESULTS_DIR}/roc_pr_curves.svg")
+    plt.close(fig)
+
+
+def main() -> None:
+    need_train = not os.path.exists(MODEL_SAVE_PATH)
+    need_eval = not os.path.exists(PREDICTIONS_PATH)
+
+    model = None
+    train_time_ns = 0
+
+    if need_train or need_eval:
+        X_train, X_val, X_test, y_train, y_val, y_test, *_ = load_data()
+        X_tr = np.concatenate([X_train, X_val], axis=0)
+        y_tr = np.concatenate([y_train, y_val], axis=0)
+
+    if need_train:
+        model, train_time_ns = train_model(X_tr, y_tr)
+    else:
+        model = joblib.load(MODEL_SAVE_PATH)
+
+    if need_eval:
+        evaluate_model(model, X_test, y_test, train_time_ns)
+    else:
+        data = np.load(PREDICTIONS_PATH)
+        y_test = data["y_test"]
+        probs = data["probs"]
+        plot_curves(y_test, probs)
+        print("✅ Model and predictions found; skipped training and evaluation.")
+
+    print(f"✅ Model saved to: {MODEL_SAVE_PATH}")
+    print(f"✅ Results & plots saved in: {RESULTS_DIR}")
+
+
+if __name__ == "__main__":
+    main()

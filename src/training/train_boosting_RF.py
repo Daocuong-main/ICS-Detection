@@ -1,137 +1,174 @@
-import os
-import json
-import joblib
-import numpy as np
-import matplotlib.pyplot as plt
-import time
-from xgboost import XGBRFClassifier  # XGBoost's Random-Forest variant
+"""Training and evaluation script for XGBRF classifier.
 
+This script trains the model once and caches both the trained model and
+evaluation results. Subsequent executions will reuse the cached artifacts and
+only regenerate plots, avoiding repeated expensive computations.
+
+Saved artifacts:
+    - Model: ``MODEL_SAVE_PATH``
+    - Predictions & probabilities: ``PREDICTIONS_PATH``
+    - Classification report with timing: ``REPORT_PATH``
+    - Confusion matrix and combined ROC/PR curves in ``RESULTS_DIR``
+"""
+
+import json
+import os
+import time
+
+import joblib
+import matplotlib.pyplot as plt
+import numpy as np
 from sklearn.metrics import (
+    ConfusionMatrixDisplay,
     classification_report,
     confusion_matrix,
-    ConfusionMatrixDisplay,
     f1_score,
-    roc_curve,
+    precision_recall_curve,
     roc_auc_score,
-    precision_recall_curve
+    roc_curve,
 )
+from xgboost import XGBRFClassifier
 
 # ================================
 # CONFIG
 # ================================
-DATA_PATH        = 'data/processed/preprocessed_data_v4.pkl'
-MODEL_SAVE_PATH  = 'models/models_v4/model_xgbrf.pkl'
-RESULTS_DIR      = 'outputs/results_v4/xgbrf'
+DATA_PATH = "data/processed/preprocessed_data_v4.pkl"
+MODEL_SAVE_PATH = "models/models_v4/model_xgbrf.pkl"
+RESULTS_DIR = "outputs/results_v4/xgbrf"
+PREDICTIONS_PATH = os.path.join(RESULTS_DIR, "predictions.npz")
+REPORT_PATH = os.path.join(RESULTS_DIR, "classification_report.json")
 
 os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
 SEED = 42
 
-# ================================
-# LOAD DATA
-# Assumes joblib contains:
-# X_train, X_val, X_test, y_train, y_val, y_test, ...
-# ================================
-X_train, X_val, X_test, y_train, y_val, y_test, *_ = joblib.load(DATA_PATH)
 
-# Train on train + val (your previous pattern)
-X_tr = np.concatenate([X_train, X_val], axis=0)
-y_tr = np.concatenate([y_train, y_val], axis=0)
+def load_data():
+    """Load train/validation/test splits from disk."""
+    return joblib.load(DATA_PATH)
 
-# ================================
-# TRAIN: XGBoost Random Forest
-# Notes:
-# - XGBRFClassifier builds trees *without boosting* (RF-style).
-# - Use subsample < 1 and colsample_bynode < 1 for RF behavior.
-# - tree_method='hist' is fast on CPU; switch to 'gpu_hist' if you have GPU.
-# ================================
-xgbrf = XGBRFClassifier(
-    n_estimators=500,        # more trees, like RF
-    max_depth=6,
-    subsample=0.8,           # RF-style row subsampling
-    colsample_bynode=0.8,    # RF-style feature subsampling per split
-    reg_lambda=1.0,
-    min_child_weight=1.0,
-    eval_metric='logloss',
-    tree_method='hist',
-    n_jobs=-1,
-    random_state=SEED
-)
 
-# ===== TRAINING TIME =====
-start_train = time.perf_counter_ns()
-xgbrf.fit(X_tr, y_tr)
-end_train = time.perf_counter_ns()
+def train_model(X_tr: np.ndarray, y_tr: np.ndarray) -> tuple[XGBRFClassifier, int]:
+    """Train the XGBRFClassifier and return it with training time in ns."""
+    model = XGBRFClassifier(
+        n_estimators=500,
+        max_depth=6,
+        subsample=0.8,
+        colsample_bynode=0.8,
+        reg_lambda=1.0,
+        min_child_weight=1.0,
+        eval_metric="logloss",
+        tree_method="hist",
+        n_jobs=-1,
+        random_state=SEED,
+    )
 
-# Store both ns and seconds for clarity
-train_time_ns = end_train - start_train
+    start = time.perf_counter_ns()
+    model.fit(X_tr, y_tr)
+    end = time.perf_counter_ns()
 
-joblib.dump(xgbrf, MODEL_SAVE_PATH)
+    joblib.dump(model, MODEL_SAVE_PATH)
+    return model, end - start
 
-# ================================
-# EVALUATE
-# ================================
-start_evaluate = time.perf_counter_ns()
-preds = xgbrf.predict(X_test)
-probs = xgbrf.predict_proba(X_test)[:, 1]  # probability of class 1 (binary)
-end_evaluate = time.perf_counter_ns()
 
-# Fix: evaluation duration should be end - start
-evaluate_time_ns = end_evaluate - start_evaluate
-time_per_sample = evaluate_time_ns / len(X_test)
-# Classification report (+ timing info)
-report = classification_report(y_test, preds, output_dict=True)
+def evaluate_model(
+    model: XGBRFClassifier, X_test: np.ndarray, y_test: np.ndarray, train_time_ns: int
+) -> int:
+    """Evaluate the model, save metrics/predictions and return evaluation time."""
+    start = time.perf_counter_ns()
+    preds = model.predict(X_test)
+    probs = model.predict_proba(X_test)[:, 1]
+    end = time.perf_counter_ns()
+    eval_time_ns = end - start
 
-# Add timing metadata into the same JSON file
-report["timing"] = {
-    "train_time_ns": train_time_ns,
-    "evaluate_time_ns": evaluate_time_ns
-}
+    # Persist predictions to enable future plotting without re-evaluation
+    np.savez(PREDICTIONS_PATH, y_test=y_test, preds=preds, probs=probs)
 
-with open(f"{RESULTS_DIR}/classification_report.json", "w") as f:
-    json.dump(report, f, indent=4)
+    report = classification_report(y_test, preds, output_dict=True)
+    report["timing"] = {
+        "train_time_ns": train_time_ns,
+        "evaluate_time_ns": eval_time_ns,
+    }
 
-print("=== XGBRF Classification Report ===")
-print(classification_report(y_test, preds))
-print("F1-micro:", f1_score(y_test, preds, average='micro'))
-print(f"Train time: {train_time_s:.4f}s  ({train_time_ns} ns)")
-print(f"Eval time:  {evaluate_time_s:.4f}s  ({evaluate_time_ns} ns)")
+    with open(REPORT_PATH, "w") as f:
+        json.dump(report, f, indent=4)
 
-# Confusion Matrix (normalized as percentage)
-cm = confusion_matrix(y_test, preds, normalize='true')
-disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-disp.plot(values_format='.2%')
-plt.title("Confusion Matrix - XGBRF")
-plt.savefig(f"{RESULTS_DIR}/confusion_matrix.pdf")
-plt.savefig(f"{RESULTS_DIR}/confusion_matrix.svg")
-plt.close()
+    print("=== XGBRF Classification Report ===")
+    print(classification_report(y_test, preds))
+    print("F1-micro:", f1_score(y_test, preds, average="micro"))
+    print(f"Train time: {train_time_ns / 1e9:.4f}s  ({train_time_ns} ns)")
+    print(f"Eval time:  {eval_time_ns / 1e9:.4f}s  ({eval_time_ns} ns)")
 
-# ROC Curve
-fpr, tpr, _ = roc_curve(y_test, probs)
-auc_score = roc_auc_score(y_test, probs)
-plt.figure()
-plt.plot(fpr, tpr, label=f"AUC = {auc_score:.2f}")
-plt.plot([0, 1], [0, 1], linestyle='--', color='gray')
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.title('ROC Curve - XGBRF')
-plt.legend()
-plt.savefig(f"{RESULTS_DIR}/roc_curve.pdf")
-plt.savefig(f"{RESULTS_DIR}/roc_curve.svg")
-plt.close()
+    cm = confusion_matrix(y_test, preds, normalize="true")
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+    disp.plot(values_format=".2%")
+    plt.title("Confusion Matrix - XGBRF")
+    plt.savefig(f"{RESULTS_DIR}/confusion_matrix.pdf")
+    plt.savefig(f"{RESULTS_DIR}/confusion_matrix.svg")
+    plt.close()
 
-# Precision-Recall Curve
-precision, recall, _ = precision_recall_curve(y_test, probs)
-plt.figure()
-plt.plot(recall, precision, label='XGBRF')
-plt.xlabel('Recall')
-plt.ylabel('Precision')
-plt.title('Precision-Recall Curve - XGBRF')
-plt.legend()
-plt.savefig(f"{RESULTS_DIR}/pr_curve.pdf")
-plt.savefig(f"{RESULTS_DIR}/pr_curve.svg")
-plt.close()
+    plot_curves(y_test, probs)
+    return eval_time_ns
 
-print(f"✅ Model saved to: {MODEL_SAVE_PATH}")
-print(f"✅ Results & plots saved in: {RESULTS_DIR}")
+
+def plot_curves(y_true: np.ndarray, probs: np.ndarray) -> None:
+    """Draw ROC and PR curves into a single figure."""
+    fpr, tpr, _ = roc_curve(y_true, probs)
+    auc_score = roc_auc_score(y_true, probs)
+    precision, recall, _ = precision_recall_curve(y_true, probs)
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+    axes[0].plot(fpr, tpr, label=f"AUC = {auc_score:.2f}")
+    axes[0].plot([0, 1], [0, 1], linestyle="--", color="gray")
+    axes[0].set_xlabel("False Positive Rate")
+    axes[0].set_ylabel("True Positive Rate")
+    axes[0].set_title("ROC Curve")
+    axes[0].legend()
+
+    axes[1].plot(recall, precision, label="XGBRF")
+    axes[1].set_xlabel("Recall")
+    axes[1].set_ylabel("Precision")
+    axes[1].set_title("Precision-Recall Curve")
+    axes[1].legend()
+
+    fig.tight_layout()
+    fig.savefig(f"{RESULTS_DIR}/roc_pr_curves.pdf")
+    fig.savefig(f"{RESULTS_DIR}/roc_pr_curves.svg")
+    plt.close(fig)
+
+
+def main() -> None:
+    need_train = not os.path.exists(MODEL_SAVE_PATH)
+    need_eval = not os.path.exists(PREDICTIONS_PATH)
+
+    model = None
+    train_time_ns = 0
+
+    if need_train or need_eval:
+        X_train, X_val, X_test, y_train, y_val, y_test, *_ = load_data()
+        X_tr = np.concatenate([X_train, X_val], axis=0)
+        y_tr = np.concatenate([y_train, y_val], axis=0)
+
+    if need_train:
+        model, train_time_ns = train_model(X_tr, y_tr)
+    else:
+        model = joblib.load(MODEL_SAVE_PATH)
+
+    if need_eval:
+        evaluate_model(model, X_test, y_test, train_time_ns)
+    else:
+        data = np.load(PREDICTIONS_PATH)
+        y_test = data["y_test"]
+        probs = data["probs"]
+        plot_curves(y_test, probs)
+        print("✅ Model and predictions found; skipped training and evaluation.")
+
+    print(f"✅ Model saved to: {MODEL_SAVE_PATH}")
+    print(f"✅ Results & plots saved in: {RESULTS_DIR}")
+
+
+if __name__ == "__main__":
+    main()
+
