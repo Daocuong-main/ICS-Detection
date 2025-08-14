@@ -40,6 +40,6 @@ cols = ['folder', 'file'] + [c for c in df.columns if c not in ('folder','file')
 df = df[cols]
 
 # 5) Save
-df.to_csv('all_classification_reports_summary.csv', index=False)
+df.to_csv('outputs/reports/all_classification_reports_summary.csv', index=False)
 
 print(f"Wrote summary for {len(df)} reports to all_classification_reports_summary.csv")

@@ -15,17 +15,18 @@ import matplotlib.pyplot as plt
 from sklearn.utils import resample
 
 # ====== CONFIG ======
-DATA_PATH        = 'preprocessed_data_v4.pkl'
-MODELS_DIR       = 'models'
-RESULTS_DIR      = 'results_v4'
+VER_NUMBER      = 'v4'
+DATA_PATH       = f'data/processed/preprocessed_data_{VER_NUMBER}.pkl'
+MODELS_DIR      = f'models/models_{VER_NUMBER}'
+RESULTS_DIR     = f'outputs/results_{VER_NUMBER}'
 os.makedirs(MODELS_DIR, exist_ok=True)
 for sub in ['lstm_bag', 'xgb_bag', 'combined']:
     os.makedirs(os.path.join(RESULTS_DIR, sub), exist_ok=True)
 
 DEVICE     = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE = 64
-N_LSTM      = 100    # number of LSTM bags
-N_XGB       = 100    # number of XGB bags
+N_LSTM      = 20    # number of LSTM bags
+N_XGB       = 20    # number of XGB bags
 EPOCHS      = 20
 PATIENCE    = 5
 LR          = 1e-3

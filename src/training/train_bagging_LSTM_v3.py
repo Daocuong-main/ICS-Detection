@@ -16,10 +16,11 @@ import matplotlib.pyplot as plt
 from sklearn.utils import resample
 
 # ====== CONFIG ======
-DATA_PATH       = 'preprocessed_data_v3.pkl'
-MODELS_DIR      = 'models_v3'
-RESULTS_DIR     = 'results_v3'
-PREDICTIONS_DIR = 'predictions_v3' # Added
+VER_NUMBER      = 'v3'
+DATA_PATH       = f'data/processed/preprocessed_data_{VER_NUMBER}.pkl'
+MODELS_DIR      = f'models/models_{VER_NUMBER}'
+RESULTS_DIR     = f'outputs/results_{VER_NUMBER}'
+PREDICTIONS_DIR = f'outputs/predictions_{VER_NUMBER}' # Added
 os.makedirs(MODELS_DIR, exist_ok=True)
 os.makedirs(PREDICTIONS_DIR, exist_ok=True) # Added
 for sub in ['lstm_bag', 'xgb_bag', 'combined']:
@@ -27,8 +28,8 @@ for sub in ['lstm_bag', 'xgb_bag', 'combined']:
 
 DEVICE     = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE = 64
-N_LSTM     = 100
-N_XGB      = 100
+N_LSTM     = 20
+N_XGB      = 20
 EPOCHS     = 20
 PATIENCE   = 5
 LR         = 1e-3

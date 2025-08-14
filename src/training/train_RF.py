@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 import json
 
 # ====== CONFIG ======
-DATA_PATH = 'preprocessed_data_v4.pkl'  # Đổi tên nếu bạn lưu file khác
-MODEL_SAVE_PATH = 'models_v4/model_rf.pkl'
-RESULTS_DIR = 'results_v4/randomforest'
+DATA_PATH = 'data/processed/preprocessed_data_v4.pkl'  # Đổi tên nếu bạn lưu file khác
+MODEL_SAVE_PATH = 'models/models_v4/model_rf.pkl'
+RESULTS_DIR = 'outputs/results_v4/randomforest'
 os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
 

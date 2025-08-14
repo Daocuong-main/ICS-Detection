@@ -15,10 +15,10 @@ from sklearn.utils.class_weight import compute_class_weight
 import matplotlib.pyplot as plt
 
 # ====== CONFIG ======
-DATA_PATH        = 'preprocessed_data_v3.pkl'
-MODEL_LSTM_PATH  = 'models_v3/model_lstm.pt'
-MODEL_XGB_PATH   = 'models_v3/model_xgb.pkl'
-RESULTS_DIR      = 'results_v3'
+DATA_PATH        = 'data/processed/preprocessed_data_v3.pkl'
+MODEL_LSTM_PATH  = 'models/models_v3/model_lstm.pt'
+MODEL_XGB_PATH   = 'models/models_v3/model_xgb.pkl'
+RESULTS_DIR      = 'outputs/results_v3'
 LSTM_RESULTS_DIR = os.path.join(RESULTS_DIR, 'lstm')
 XGB_RESULTS_DIR  = os.path.join(RESULTS_DIR, 'xgb')
 ENS_RESULTS_DIR  = os.path.join(RESULTS_DIR, 'ensemble')

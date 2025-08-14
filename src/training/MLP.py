@@ -8,12 +8,13 @@ import json
 import matplotlib.pyplot as plt
 import os
 import joblib
+import time
 
 # --- CONFIG ---
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MODEL_SAVE_PATH = "models/model_mlp.pt"
+MODEL_SAVE_PATH = "models/models/model_mlp.pt"
 SCALER_SAVE_PATH = "scalers/mlp_scaler.pkl"
-RESULTS_DIR = "results/mlp"
+RESULTS_DIR = "outputs/results/mlp"
 os.makedirs(RESULTS_DIR, exist_ok=True)
 os.makedirs(os.path.dirname(SCALER_SAVE_PATH), exist_ok=True)
 os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
@@ -23,7 +24,7 @@ os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
 # =======================
 # Giả sử bạn đã lưu preprocessed_data_v4.pkl với các biến:
 # X_train, X_val, X_test, y_train, y_val, y_test
-X_train, X_val, X_test, y_train, y_val, y_test, *_= joblib.load('preprocessed_data1.pkl')
+X_train, X_val, X_test, y_train, y_val, y_test, *_= joblib.load('data/processed/preprocessed_data1.pkl')
 
 # Scale dữ liệu
 scaler = MinMaxScaler()
@@ -163,7 +164,11 @@ def evaluate_mlp(model, test_loader, device, results_dir=RESULTS_DIR):
 # =======================
 input_dim = X_train_scaled.shape[1]
 mlp_model = SimpleMLP(input_dim, num_classes=2)
+start_train = time.perf_counter_ns()
 train_mlp(mlp_model, train_loader, val_loader, DEVICE, epochs=30, lr=1e-3, patience=8)
-
+end_train = time.perf_counter_ns()
 mlp_model.load_state_dict(torch.load(MODEL_SAVE_PATH, map_location=DEVICE))
+
+start_evaluate = time.perf_counter_ns()
 evaluate_mlp(mlp_model, test_loader, DEVICE, results_dir=RESULTS_DIR)
+end_evaluate = time.perf_counter_ns()

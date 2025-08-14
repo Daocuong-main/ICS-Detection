@@ -2,7 +2,7 @@ import os
 import shutil
 
 # Define root and destination directory
-root_dir = '.'
+root_dir = 'outputs'
 target_dir = os.path.join(root_dir, 'all_pdfs_collected')
 os.makedirs(target_dir, exist_ok=True)
 
