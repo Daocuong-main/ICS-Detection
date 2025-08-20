@@ -1,213 +1,195 @@
-import os
-import json
-import joblib
-import numpy as np
-import torch
-import torch.nn as nn
+# src/training/train_bagging_LSTM.py
+import os, json, time, numpy as np, joblib, torch, torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, Subset
-from xgboost import XGBClassifier
-from sklearn.metrics import (
-    classification_report, confusion_matrix,
-    ConfusionMatrixDisplay, f1_score,
-    roc_curve, roc_auc_score, precision_recall_curve
-)
-import matplotlib.pyplot as plt
 from sklearn.utils import resample
+from xgboost import XGBClassifier
 
-# ====== CONFIG ======
-VER_NUMBER      = 'v4'
-DATA_PATH       = f'data/processed/preprocessed_data_{VER_NUMBER}.pkl'
-MODELS_DIR      = f'models/models_{VER_NUMBER}'
-RESULTS_DIR     = f'outputs/results_{VER_NUMBER}'
-os.makedirs(MODELS_DIR, exist_ok=True)
-for sub in ['lstm_bag', 'xgb_bag', 'combined']:
-    os.makedirs(os.path.join(RESULTS_DIR, sub), exist_ok=True)
+# ---------- Config ----------
+RUN_ID      = "v4"
+DATA_PATH   = f"data/processed/preprocessed_data_{RUN_ID}.pkl"  # adjust if needed
 
-DEVICE     = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-BATCH_SIZE = 64
-N_LSTM      = 20    # number of LSTM bags
-N_XGB       = 20    # number of XGB bags
+MODEL_DIR   = f"models/{RUN_ID}"
+LSTM_DIR    = os.path.join(MODEL_DIR, "lstm_bag")
+XGB_DIR     = os.path.join(MODEL_DIR, "xgb_bag")
+MANIFEST    = os.path.join(MODEL_DIR, "bagging_manifest.json")
+
+os.makedirs(LSTM_DIR, exist_ok=True)
+os.makedirs(XGB_DIR, exist_ok=True)
+
+DEVICE      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+BATCH_SIZE  = 64
+N_LSTM      = 20        # number of LSTM bags
+N_XGB       = 20        # number of XGB bags
 EPOCHS      = 20
 PATIENCE    = 5
 LR          = 1e-3
 SEED        = 42
+
 np.random.seed(SEED)
 torch.manual_seed(SEED)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
 
-# ====== LOAD DATA ======
+# ---------- Data ----------
 X_train, X_val, X_test, y_train, y_val, y_test, *_ = joblib.load(DATA_PATH)
-# ====== DATASET & DATALOADER ======
+
 class TabularSequenceDataset(Dataset):
     def __init__(self, X, y):
-        # if X is a DataFrame, grab its values
         X_arr = X.values if hasattr(X, "values") else X
-        self.X = torch.tensor(X_arr, dtype=torch.float32)
-
-        # y may be a Series or array already
         y_arr = y.values if hasattr(y, "values") else y
+        self.X = torch.tensor(X_arr, dtype=torch.float32)
         self.y = torch.tensor(y_arr, dtype=torch.long)
-
-    def __len__(self):
-        return len(self.X)
-
+    def __len__(self): return len(self.X)
     def __getitem__(self, idx):
-        return {
-            'inputs': self.X[idx].unsqueeze(-1),
-            'labels': self.y[idx]
-        }
-
+        return {"inputs": self.X[idx].unsqueeze(-1), "labels": self.y[idx]}
 
 full_train_ds = TabularSequenceDataset(X_train, y_train)
 val_ds        = TabularSequenceDataset(X_val,   y_val)
-test_ds       = TabularSequenceDataset(X_test,  y_test)
 
-val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False)
-test_loader = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False)
+val_loader    = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False)
 
-# ====== MODEL CLASSES ======
+# ---------- Model ----------
 class TabularLSTM(nn.Module):
-    def __init__(self, input_size=1, hidden_size=64,
-                 num_layers=2, num_classes=2, dropout=0.2):
+    def __init__(self, input_size=1, hidden_size=64, num_layers=2, num_classes=2, dropout=0.2):
         super().__init__()
-        self.lstm = nn.LSTM(input_size, hidden_size,
-                            num_layers, batch_first=True,
-                            dropout=dropout)
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout)
         self.fc   = nn.Linear(hidden_size, num_classes)
     def forward(self, x):
-        out, _ = self.lstm(x)
-        out    = out[:, -1, :]
+        out, _ = self.lstm(x)       # (B, T, H)
+        out = out[:, -1, :]         # last timestep
         return self.fc(out)
 
-# ====== TRAIN / EVAL HELPERS ======
-def train_one_lstm(model, train_loader, val_loader, device):
-    opt = torch.optim.Adam(model.parameters(), lr=LR)
+def train_one_lstm(model, train_loader, val_loader, device, epochs=EPOCHS, lr=LR, patience=PATIENCE):
+    opt  = torch.optim.Adam(model.parameters(), lr=lr)
     crit = nn.CrossEntropyLoss()
-    model.to(device).train()
-    best_acc, no_imp = 0, 0
-    for ep in range(1, EPOCHS+1):
-        total_loss = 0
+    model.to(device)
+
+    best_acc, no_imp = 0.0, 0
+    for ep in range(1, epochs + 1):
+        model.train()
         for b in train_loader:
-            x, y = b['inputs'].to(device), b['labels'].to(device)
+            x, y = b["inputs"].to(device), b["labels"].to(device)
             logits = model(x)
-            loss = crit(logits, y)
+            loss   = crit(logits, y)
             opt.zero_grad(); loss.backward(); opt.step()
-            total_loss += loss.item()
+
         # validate
         model.eval()
         preds, labs = [], []
         with torch.no_grad():
             for b in val_loader:
-                x, y = b['inputs'].to(device), b['labels'].to(device)
+                x, y = b["inputs"].to(device), b["labels"].to(device)
                 logits = model(x)
                 preds.extend(logits.argmax(1).cpu().numpy())
                 labs.extend(y.cpu().numpy())
-        acc = np.mean(np.array(preds)==np.array(labs))
-        model.train()
+        acc = float((np.array(preds) == np.array(labs)).mean())
+
         if acc > best_acc:
             best_acc, no_imp = acc, 0
         else:
             no_imp += 1
-            if no_imp > PATIENCE:
+            if no_imp > patience:
                 break
     return best_acc
 
-def evaluate_and_plot(y_true, y_pred, y_prob, out_dir, name):
-    # report
-    rpt = classification_report(y_true, y_pred, output_dict=True)
-    with open(f"{out_dir}/{name}_report.json", "w") as f:
-        json.dump(rpt, f, indent=4)
-    print(f"\n{name} Report:\n", classification_report(y_true, y_pred))
-    print(f"{name} F1-micro:", f1_score(y_true, y_pred, average='micro'))
-    # confusion (normalized as percentage)
-    cm = confusion_matrix(y_true, y_pred, normalize='true')
-    disp = ConfusionMatrixDisplay(cm)
-    disp.plot(values_format='.2%'); plt.title(f"{name} Confusion"); plt.savefig(f"{out_dir}/{name}_cm.pdf"); plt.close()
-    # ROC
-    fpr, tpr, _ = roc_curve(y_true, y_prob)
-    auc = roc_auc_score(y_true, y_prob)
-    plt.figure(); plt.plot(fpr,tpr,label=f"AUC={auc:.2f}")
-    plt.plot([0,1],[0,1],'--',color='gray')
-    plt.title(f"{name} ROC"); plt.legend(); plt.savefig(f"{out_dir}/{name}_roc.pdf"); plt.close()
-    # PR
-    prec, rec, _ = precision_recall_curve(y_true, y_prob)
-    plt.figure(); plt.plot(rec,prec,label=name)
-    plt.title(f"{name} PR"); plt.legend(); plt.savefig(f"{out_dir}/{name}_pr.pdf"); plt.close()
+def main():
+    manifest = {
+        "run_id": RUN_ID,
+        "seed": SEED,
+        "device": str(DEVICE),
+        "config": {
+            "batch_size": BATCH_SIZE,
+            "epochs": EPOCHS,
+            "patience": PATIENCE,
+            "lr": LR,
+            "n_lstm": N_LSTM,
+            "n_xgb": N_XGB
+        },
+        "outputs": {
+            "lstm_bags": [],
+            "xgb_bags": []
+        }
+    }
 
-# ====== 1) BAGGED LSTM ======
-lstm_models = []
-bagged_lstm_probs = []
-for i in range(N_LSTM):
-    # bootstrap sample indices
-    idxs = resample(range(len(full_train_ds)),
-                    replace=True,
-                    n_samples=len(full_train_ds),
-                    random_state=SEED+i)
-    ds_boot = Subset(full_train_ds, idxs)
-    loader_boot = DataLoader(ds_boot, batch_size=BATCH_SIZE, shuffle=True)
-    # init & train
-    m = TabularLSTM()
-    acc = train_one_lstm(m, loader_boot, val_loader, DEVICE)
-    print(f" LSTM bag {i+1} best val-acc: {acc:.4f}")
-    # save
-    torch.save(m.state_dict(), f"{MODELS_DIR}/lstm_bag_{i}.pt")
-    lstm_models.append(m)
-    # collect test-probs
-    m.to(DEVICE).eval()
-    probs = []
-    with torch.no_grad():
-        for b in test_loader:
-            x = b['inputs'].to(DEVICE)
-            logits = m(x)
-            probs.extend(torch.softmax(logits,1)[:,1].cpu().numpy())
-    bagged_lstm_probs.append(probs)
+    # ===== 1) Bagged LSTM (bootstrap from train only; early-stop on val) =====
+    print(f"==> Training {N_LSTM} LSTM bags …")
+    for i in range(N_LSTM):
+        # bootstrap indices from training set
+        idxs = resample(range(len(full_train_ds)),
+                        replace=True,
+                        n_samples=len(full_train_ds),
+                        random_state=SEED + i)
+        ds_boot     = Subset(full_train_ds, idxs)
+        loader_boot = DataLoader(ds_boot, batch_size=BATCH_SIZE, shuffle=True)
 
-bagged_lstm_probs = np.mean(bagged_lstm_probs, axis=0)
-bagged_lstm_preds = (bagged_lstm_probs >= 0.5).astype(int)
-evaluate_and_plot(
-    y_test, bagged_lstm_preds, bagged_lstm_probs,
-    os.path.join(RESULTS_DIR,'lstm_bag'), "Bagged_LSTM"
-)
+        m = TabularLSTM()
+        t0 = time.perf_counter_ns()
+        best_val_acc = train_one_lstm(m, loader_boot, val_loader, DEVICE)
+        t1 = time.perf_counter_ns()
 
-# ====== 2) BAGGED XGBOOST ======
-X_flat    = X_train.reshape(len(X_train), -1)
-y_flat    = np.array(y_train)
-X_val_flat= X_val.reshape(len(X_val), -1)
-y_val_arr = np.array(y_val)
-X_test_flat = X_test.reshape(len(X_test), -1)
+        # save
+        path = os.path.join(LSTM_DIR, f"lstm_bag_{i}.pt")
+        torch.save(m.state_dict(), path)
 
-xgb_models = []
-bagged_xgb_probs = []
-for i in range(N_XGB):
-    Xi, yi = resample(
-        np.vstack([X_flat, X_val_flat]),
-        np.hstack([y_flat, y_val_arr]),
-        replace=True,
-        n_samples=len(X_flat)+len(X_val_flat),
-        random_state=SEED+i
-    )
-    model = XGBClassifier(
-        n_estimators=100,
-        use_label_encoder=False,
-        eval_metric='logloss',
-        random_state=SEED+i
-    )
-    model.fit(Xi, yi)
-    joblib.dump(model, f"{MODELS_DIR}/xgb_bag_{i}.pkl")
-    xgb_models.append(model)
-    # test probs
-    bagged_xgb_probs.append(model.predict_proba(X_test_flat)[:,1])
+        manifest["outputs"]["lstm_bags"].append({
+            "index": i,
+            "path": path,
+            "best_val_acc": best_val_acc,
+            "train_time_ns": int(t1 - t0)
+        })
+        print(f"  [LSTM {i+1:02d}] best_val_acc={best_val_acc:.4f}  saved={path}")
 
-bagged_xgb_probs = np.mean(bagged_xgb_probs, axis=0)
-bagged_xgb_preds = (bagged_xgb_probs >= 0.5).astype(int)
-evaluate_and_plot(
-    y_test, bagged_xgb_preds, bagged_xgb_probs,
-    os.path.join(RESULTS_DIR,'xgb_bag'), "Bagged_XGB"
-)
+    # ===== 2) Bagged XGBoost (bootstrap from train+val, flattened) =====
+    print(f"==> Training {N_XGB} XGB bags …")
+    X_train_np = np.asarray(X_train)
+    X_val_np   = np.asarray(X_val)
 
-# ====== 3) COMBINED BAGGED ENSEMBLE ======
-combined_probs = (bagged_lstm_probs + bagged_xgb_probs) / 2
-combined_preds = (combined_probs >= 0.5).astype(int)
-evaluate_and_plot(
-    y_test, combined_preds, combined_probs,
-    os.path.join(RESULTS_DIR,'combined'), "Bagged_Ensemble"
-)
+    X_flat      = X_train_np.reshape(len(X_train_np), -1)
+    X_val_flat  = X_val_np.reshape(len(X_val_np), -1)
+    y_flat      = np.array(y_train)
+    y_val_arr   = np.array(y_val)
+
+    X_pool = np.vstack([X_flat, X_val_flat])
+    y_pool = np.hstack([y_flat, y_val_arr])
+
+    for i in range(N_XGB):
+        Xi, yi = resample(
+            X_pool, y_pool,
+            replace=True,
+            n_samples=len(X_pool),
+            random_state=SEED + i
+        )
+        model = XGBClassifier(
+            n_estimators=100,
+            use_label_encoder=False,
+            eval_metric="logloss",
+            random_state=SEED + i,
+            n_jobs=-1,
+            verbosity=1
+        )
+        t0 = time.perf_counter_ns()
+        model.fit(Xi, yi)
+        t1 = time.perf_counter_ns()
+
+        path = os.path.join(XGB_DIR, f"xgb_bag_{i}.pkl")
+        joblib.dump(model, path)
+
+        manifest["outputs"]["xgb_bags"].append({
+            "index": i,
+            "path": path,
+            "train_time_ns": int(t1 - t0),
+            "params": {"n_estimators": 100, "eval_metric": "logloss", "random_state": SEED + i}
+        })
+        print(f"  [XGB {i+1:02d}] saved={path}")
+
+    # ===== 3) Save manifest =====
+    with open(MANIFEST, "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    print("\n✅ Bagging training complete.")
+    print(f"📝 LSTM bags in: {LSTM_DIR}")
+    print(f"📝 XGB bags in:  {XGB_DIR}")
+    print(f"🧾 Manifest:     {MANIFEST}")
+
+if __name__ == "__main__":
+    main()

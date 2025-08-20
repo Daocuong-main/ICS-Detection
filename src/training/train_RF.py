@@ -1,83 +1,77 @@
-import os
-import joblib
-import numpy as np
+# src/training/train_RF.py
+import os, json, time, joblib, numpy as np
+from sklearn import __version__ as sklearn_version
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay, f1_score
-import matplotlib.pyplot as plt
-import json
 
-# ====== CONFIG ======
-DATA_PATH = 'data/processed/preprocessed_data_v4.pkl'  # Đổi tên nếu bạn lưu file khác
-MODEL_SAVE_PATH = 'models/models_v4/model_rf.pkl'
-RESULTS_DIR = 'outputs/results_v4/randomforest'
-os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
-os.makedirs(RESULTS_DIR, exist_ok=True)
+# ---------- Config ----------
+RUN_ID     = "v4"
+DATA_PATH  = "data/processed/preprocessed_data_v4.pkl"  # adjust if needed
+MODEL_DIR  = f"models/{RUN_ID}"
+MODEL_KEY  = "rf"
+MODEL_PATH = os.path.join(MODEL_DIR, f"{MODEL_KEY}.pkl")
+SEED       = 42
 
-# ====== LOAD DATA ======
-# Giả sử data đã split/scale thành:
-# X_train, X_val, X_test, y_train, y_val, y_test
-X_train, X_val, X_test, y_train, y_val, y_test, *_ = joblib.load(DATA_PATH)
+# RF hyperparams (edit as you like)
+N_ESTIMATORS   = 100
+MAX_DEPTH      = None
+N_JOBS         = -1
+RANDOM_STATE   = 42  # keep equal to SEED for reproducibility
 
-# Có thể concat X_train và X_val nếu muốn train trên all train data:
-X_tr = np.concatenate([X_train, X_val], axis=0)
-y_tr = np.concatenate([y_train, y_val], axis=0)
+os.makedirs(MODEL_DIR, exist_ok=True)
 
-# ====== TRAIN RF ======
-rf = RandomForestClassifier(
-    n_estimators=100,
-    max_depth=None,
-    random_state=42,
-    n_jobs=-1
-)
-rf.fit(X_tr, y_tr)
-joblib.dump(rf, MODEL_SAVE_PATH)
+def set_seed(s=42):
+    import random
+    random.seed(s); np.random.seed(s)
 
-# ====== EVALUATE RF ======
-preds = rf.predict(X_test)
-probs = rf.predict_proba(X_test)[:, 1]  # Xác suất class 1 (binary)
+def main():
+    set_seed(SEED)
 
-# Classification report
-report = classification_report(y_test, preds, output_dict=True)
-with open(f"{RESULTS_DIR}/classification_report.json", "w") as f:
-    json.dump(report, f, indent=4)
-print(classification_report(y_test, preds))
-print("F1-micro:", f1_score(y_test, preds, average='micro'))
+    # 1) Load splits (expects: X_train, X_val, X_test, y_train, y_val, y_test, ...)
+    X_train, X_val, X_test, y_train, y_val, y_test, *_ = joblib.load(DATA_PATH)
 
-# Confusion Matrix (normalized as percentage)
-cm = confusion_matrix(y_test, preds, normalize='true')
-disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-disp.plot(values_format='.2%')
-plt.title("Confusion Matrix - Random Forest")
-plt.savefig(f"{RESULTS_DIR}/confusion_matrix.pdf")
-plt.savefig(f"{RESULTS_DIR}/confusion_matrix.svg")
-plt.close()
+    # 2) Train on train + val (as in your original script)
+    X_tr = np.concatenate([X_train, X_val], axis=0)
+    y_tr = np.concatenate([y_train, y_val], axis=0).ravel()
 
-# ROC Curve (nếu bạn muốn)
-from sklearn.metrics import roc_curve, roc_auc_score, precision_recall_curve
+    # 3) Model + fit with nanosecond timing
+    rf = RandomForestClassifier(
+        n_estimators=N_ESTIMATORS,
+        max_depth=MAX_DEPTH,
+        n_jobs=N_JOBS,
+        random_state=RANDOM_STATE,
+    )
 
-fpr, tpr, _ = roc_curve(y_test, probs)
-auc_score = roc_auc_score(y_test, probs)
-plt.figure()
-plt.plot(fpr, tpr, label=f"AUC = {auc_score:.2f}")
-plt.plot([0, 1], [0, 1], linestyle='--', color='gray')
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.title('ROC Curve - Random Forest')
-plt.legend()
-plt.savefig(f"{RESULTS_DIR}/roc_curve.pdf")
-plt.savefig(f"{RESULTS_DIR}/roc_curve.svg")
-plt.close()
+    t0_ns = time.perf_counter_ns()
+    rf.fit(X_tr, y_tr)
+    t1_ns = time.perf_counter_ns()
 
-# Precision-Recall Curve
-precision, recall, _ = precision_recall_curve(y_test, probs)
-plt.figure()
-plt.plot(recall, precision, label='Random Forest')
-plt.xlabel('Recall')
-plt.ylabel('Precision')
-plt.title('Precision-Recall Curve - Random Forest')
-plt.legend()
-plt.savefig(f"{RESULTS_DIR}/pr_curve.pdf")
-plt.savefig(f"{RESULTS_DIR}/pr_curve.svg")
-plt.close()
+    # 4) Save model
+    joblib.dump(rf, MODEL_PATH)
 
-print(f"✅ Kết quả và hình ảnh lưu tại: {RESULTS_DIR}")
+    # 5) Save training metadata (for consistent later evaluation/plots)
+    meta = {
+        "run_id": RUN_ID,
+        "model_key": MODEL_KEY,
+        "sklearn_version": sklearn_version,
+        "train_features": int(X_tr.shape[1]),
+        "train_samples": int(X_tr.shape[0]),
+        "class_distribution": {int(c): int((y_tr == c).sum()) for c in np.unique(y_tr)},
+        "classes_order": [int(c) for c in rf.classes_],  # important for aligning proba columns later
+        "rf_params": {
+            "n_estimators": N_ESTIMATORS,
+            "max_depth": MAX_DEPTH,
+            "n_jobs": N_JOBS,
+            "random_state": RANDOM_STATE,
+        },
+        "train_time_ns_total": int(t1_ns - t0_ns),
+        "seed": SEED,
+        "device": "cpu",
+    }
+    with open(os.path.join(MODEL_DIR, f"{MODEL_KEY}_training_metadata.json"), "w") as f:
+        json.dump(meta, f, indent=2)
+
+    print(f"✅ Saved RF model to {MODEL_PATH}")
+    print(f"📝 Training metadata saved next to the model.")
+
+if __name__ == "__main__":
+    main()

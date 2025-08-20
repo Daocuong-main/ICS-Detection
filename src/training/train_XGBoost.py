@@ -1,84 +1,77 @@
-import os
-import joblib
-import numpy as np
-import json
+# src/training/train_XGBoost.py
+import os, json, time, numpy as np, joblib
 from xgboost import XGBClassifier
-from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay, f1_score, roc_curve, roc_auc_score, precision_recall_curve
-import matplotlib.pyplot as plt
 
-# ====== CONFIG ======
-DATA_PATH = 'data/processed/preprocessed_data_v4.pkl'  
-MODEL_SAVE_PATH = 'models/models_v4/model_xgb.json'
-RESULTS_DIR = 'outputs/results_v4/xgboost'
-os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
-os.makedirs(RESULTS_DIR, exist_ok=True)
+# ---------- Config ----------
+RUN_ID     = "v4"
+DATA_PATH  = "data/processed/preprocessed_data_v4.pkl"  # adjust if needed
+MODEL_DIR  = f"models/{RUN_ID}"
+MODEL_KEY  = "xgb"
+MODEL_PATH = os.path.join(MODEL_DIR, f"{MODEL_KEY}.json")
 
-# ====== LOAD DATA ======
-X_train, X_val, X_test, y_train, y_val, y_test, *_ = joblib.load(DATA_PATH)
-# Có thể concat train + val cho train XGB tốt hơn:
-X_tr = np.concatenate([X_train, X_val], axis=0)
-y_tr = np.concatenate([y_train, y_val], axis=0)
+SEED       = 42
+os.makedirs(MODEL_DIR, exist_ok=True)
 
-# ====== TRAIN XGBoost ======
-xgb = XGBClassifier(
-    n_estimators=200,
-    learning_rate=0.05,
-    max_depth=6,
-    subsample=0.8,
-    colsample_bytree=0.8,
-    use_label_encoder=False,
-    eval_metric='logloss',
-    random_state=42,
-    n_jobs=-1,
-    verbosity=1
-)
-xgb.fit(X_tr, y_tr)
-xgb.save_model(MODEL_SAVE_PATH)
+def set_seed(s=42):
+    import random
+    random.seed(s); np.random.seed(s)
 
-# ====== EVALUATE XGBoost ======
-preds = xgb.predict(X_test)
-probs = xgb.predict_proba(X_test)[:, 1]  # Xác suất class 1
+def main():
+    set_seed(SEED)
 
-# Classification report
-report = classification_report(y_test, preds, output_dict=True)
-with open(f"{RESULTS_DIR}/classification_report.json", "w") as f:
-    json.dump(report, f, indent=4)
-print(classification_report(y_test, preds))
-print("F1-micro:", f1_score(y_test, preds, average='micro'))
+    # 1) Load splits
+    X_train, X_val, X_test, y_train, y_val, y_test, *_ = joblib.load(DATA_PATH)
 
-# Confusion Matrix (normalized as percentage)
-cm = confusion_matrix(y_test, preds, normalize='true')
-disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-disp.plot(values_format='.2%')
-plt.title("Confusion Matrix - XGBoost")
-plt.savefig(f"{RESULTS_DIR}/confusion_matrix.pdf")
-plt.savefig(f"{RESULTS_DIR}/confusion_matrix.svg")
-plt.close()
+    # 2) Train on train+val (common for tree models)
+    X_tr = np.concatenate([X_train, X_val], axis=0)
+    y_tr = np.concatenate([y_train, y_val], axis=0)
 
-# ROC Curve
-fpr, tpr, _ = roc_curve(y_test, probs)
-auc_score = roc_auc_score(y_test, probs)
-plt.figure()
-plt.plot(fpr, tpr, label=f"AUC = {auc_score:.2f}")
-plt.plot([0, 1], [0, 1], linestyle='--', color='gray')
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.title('ROC Curve - XGBoost')
-plt.legend()
-plt.savefig(f"{RESULTS_DIR}/roc_curve.pdf")
-plt.savefig(f"{RESULTS_DIR}/roc_curve.svg")
-plt.close()
+    # 3) Define model (tweak as you wish)
+    model = XGBClassifier(
+        n_estimators=200,
+        learning_rate=0.05,
+        max_depth=6,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        eval_metric="logloss",
+        random_state=SEED,
+        n_jobs=-1,
+        verbosity=1,
+        # use_label_encoder is deprecated in recent xgboost; not needed here
+    )
 
-# Precision-Recall Curve
-precision, recall, _ = precision_recall_curve(y_test, probs)
-plt.figure()
-plt.plot(recall, precision, label='XGBoost')
-plt.xlabel('Recall')
-plt.ylabel('Precision')
-plt.title('Precision-Recall Curve - XGBoost')
-plt.legend()
-plt.savefig(f"{RESULTS_DIR}/pr_curve.pdf")
-plt.savefig(f"{RESULTS_DIR}/pr_curve.svg")
-plt.close()
+    # 4) Train (timed)
+    t0_ns = time.perf_counter_ns()
+    model.fit(X_tr, y_tr)
+    t1_ns = time.perf_counter_ns()
 
-print(f"✅ Kết quả và hình ảnh lưu tại: {RESULTS_DIR}")
+    # 5) Save model + metadata
+    model.save_model(MODEL_PATH)
+
+    meta = {
+        "run_id": RUN_ID,
+        "model_key": MODEL_KEY,
+        "algorithm": "XGBClassifier",
+        "params": {
+            "n_estimators": 200,
+            "learning_rate": 0.05,
+            "max_depth": 6,
+            "subsample": 0.8,
+            "colsample_bytree": 0.8,
+            "eval_metric": "logloss",
+            "random_state": SEED,
+            "n_jobs": -1,
+        },
+        "train_shape": [int(X_tr.shape[0]), int(X_tr.shape[1])],
+        "train_time_ns_total": int(t1_ns - t0_ns),
+        "seed": SEED,
+        "paths": {"model": MODEL_PATH},
+    }
+    with open(os.path.join(MODEL_DIR, f"{MODEL_KEY}_training_metadata.json"), "w") as f:
+        json.dump(meta, f, indent=2)
+
+    print(f"✅ Saved XGBoost model to {MODEL_PATH}")
+    print("📝 Training metadata saved next to the model.")
+
+if __name__ == "__main__":
+    main()

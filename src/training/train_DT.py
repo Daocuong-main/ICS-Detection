@@ -1,78 +1,80 @@
-import os
-import joblib
-import numpy as np
-import json
+# src/training/train_DT.py
+import os, json, time, joblib, numpy as np
+from sklearn import __version__ as sklearn_version
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay, f1_score, roc_curve, roc_auc_score, precision_recall_curve
-import matplotlib.pyplot as plt
 
-# ====== CONFIG ======
-DATA_PATH = 'data/processed/preprocessed_data_v4.pkl' 
-MODEL_SAVE_PATH = 'models/models_v4/model_dtree.pkl'
-RESULTS_DIR = 'outputs/results_v4/decisiontree'
-os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
-os.makedirs(RESULTS_DIR, exist_ok=True)
+# ---------- Config ----------
+RUN_ID     = "v4"
+DATA_PATH  = "data/processed/preprocessed_data_v4.pkl"  # adjust if needed
+MODEL_DIR  = f"models/{RUN_ID}"
+MODEL_KEY  = "dtree"
+MODEL_PATH = os.path.join(MODEL_DIR, f"{MODEL_KEY}.pkl")
+SEED       = 42
 
-# ====== LOAD DATA ======
-X_train, X_val, X_test, y_train, y_val, y_test, *_ = joblib.load(DATA_PATH)
-# Có thể concat train + val
-X_tr = np.concatenate([X_train, X_val], axis=0)
-y_tr = np.concatenate([y_train, y_val], axis=0)
+# Decision Tree hyperparams (edit as you like)
+CRITERION          = "gini"      # or "entropy", "log_loss"
+MAX_DEPTH          = None
+MIN_SAMPLES_SPLIT  = 2
+MIN_SAMPLES_LEAF   = 1
+RANDOM_STATE       = 42          # keep equal to SEED for reproducibility
 
-# ====== TRAIN Decision Tree ======
-dtree = DecisionTreeClassifier(
-    max_depth=None,       # Hoặc set max_depth=5,... nếu muốn regularize
-    min_samples_split=2,
-    random_state=42
-)
-dtree.fit(X_tr, y_tr)
-joblib.dump(dtree, MODEL_SAVE_PATH)
+os.makedirs(MODEL_DIR, exist_ok=True)
 
-# ====== EVALUATE Decision Tree ======
-preds = dtree.predict(X_test)
-probs = dtree.predict_proba(X_test)[:, 1] if len(dtree.classes_) > 1 else np.zeros_like(preds)
+def set_seed(s=42):
+    import random
+    random.seed(s); np.random.seed(s)
 
-# Classification report
-report = classification_report(y_test, preds, output_dict=True)
-with open(f"{RESULTS_DIR}/classification_report.json", "w") as f:
-    json.dump(report, f, indent=4)
-print(classification_report(y_test, preds))
-print("F1-micro:", f1_score(y_test, preds, average='micro'))
+def main():
+    set_seed(SEED)
 
-# Confusion Matrix (normalized as percentage)
-cm = confusion_matrix(y_test, preds, normalize='true')
-disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-disp.plot(values_format='.2%')
-plt.title("Confusion Matrix - Decision Tree")
-plt.savefig(f"{RESULTS_DIR}/confusion_matrix.pdf")
-plt.savefig(f"{RESULTS_DIR}/confusion_matrix.svg")
-plt.close()
+    # 1) Load splits (expects: X_train, X_val, X_test, y_train, y_val, y_test, ...)
+    X_train, X_val, X_test, y_train, y_val, y_test, *_ = joblib.load(DATA_PATH)
 
-# ROC Curve (chỉ vẽ nếu có xác suất class 1)
-if len(dtree.classes_) > 1:
-    fpr, tpr, _ = roc_curve(y_test, probs)
-    auc_score = roc_auc_score(y_test, probs)
-    plt.figure()
-    plt.plot(fpr, tpr, label=f"AUC = {auc_score:.2f}")
-    plt.plot([0, 1], [0, 1], linestyle='--', color='gray')
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('ROC Curve - Decision Tree')
-    plt.legend()
-    plt.savefig(f"{RESULTS_DIR}/roc_curve.pdf")
-    plt.savefig(f"{RESULTS_DIR}/roc_curve.svg")
-    plt.close()
+    # 2) Train on train + val (matches your original behavior)
+    X_tr = np.concatenate([X_train, X_val], axis=0)
+    y_tr = np.concatenate([y_train, y_val], axis=0).ravel()
 
-    # Precision-Recall Curve
-    precision, recall, _ = precision_recall_curve(y_test, probs)
-    plt.figure()
-    plt.plot(recall, precision, label='Decision Tree')
-    plt.xlabel('Recall')
-    plt.ylabel('Precision')
-    plt.title('Precision-Recall Curve - Decision Tree')
-    plt.legend()
-    plt.savefig(f"{RESULTS_DIR}/pr_curve.pdf")
-    plt.savefig(f"{RESULTS_DIR}/pr_curve.svg")
-    plt.close()
+    # 3) Model + fit with nanosecond timing
+    dt = DecisionTreeClassifier(
+        criterion=CRITERION,
+        max_depth=MAX_DEPTH,
+        min_samples_split=MIN_SAMPLES_SPLIT,
+        min_samples_leaf=MIN_SAMPLES_LEAF,
+        random_state=RANDOM_STATE,
+    )
 
-print(f"✅ Kết quả và hình ảnh lưu tại: {RESULTS_DIR}")
+    t0_ns = time.perf_counter_ns()
+    dt.fit(X_tr, y_tr)
+    t1_ns = time.perf_counter_ns()
+
+    # 4) Save model
+    joblib.dump(dt, MODEL_PATH)
+
+    # 5) Save training metadata for consistent later evaluation/plots
+    meta = {
+        "run_id": RUN_ID,
+        "model_key": MODEL_KEY,
+        "sklearn_version": sklearn_version,
+        "train_features": int(X_tr.shape[1]),
+        "train_samples": int(X_tr.shape[0]),
+        "class_distribution": {int(c): int((y_tr == c).sum()) for c in np.unique(y_tr)},
+        "classes_order": [int(c) for c in dt.classes_],   # align proba columns later
+        "dt_params": {
+            "criterion": CRITERION,
+            "max_depth": MAX_DEPTH,
+            "min_samples_split": MIN_SAMPLES_SPLIT,
+            "min_samples_leaf": MIN_SAMPLES_LEAF,
+            "random_state": RANDOM_STATE,
+        },
+        "train_time_ns_total": int(t1_ns - t0_ns),
+        "seed": SEED,
+        "device": "cpu",
+    }
+    with open(os.path.join(MODEL_DIR, f"{MODEL_KEY}_training_metadata.json"), "w") as f:
+        json.dump(meta, f, indent=2)
+
+    print(f"✅ Saved Decision Tree model to {MODEL_PATH}")
+    print("📝 Training metadata saved next to the model.")
+
+if __name__ == "__main__":
+    main()

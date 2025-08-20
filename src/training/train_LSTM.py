@@ -1,166 +1,142 @@
-import os
-import torch
-import torch.nn as nn
+# src/training/train_LSTM.py
+import os, json, time, joblib, numpy as np, torch, torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-import numpy as np
-import joblib
-from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay, f1_score, roc_curve, roc_auc_score, precision_recall_curve
-import matplotlib.pyplot as plt
-import json
 
-# ====== CONFIG ======
-DATA_PATH = 'data/processed/preprocessed_data_v4.pkl'
-MODEL_SAVE_PATH = 'models/models_v4/model_lstm.pt'
-RESULTS_DIR = 'outputs/results_v4/lstm'
-os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
-os.makedirs(RESULTS_DIR, exist_ok=True)
+# ---------- Config ----------
+RUN_ID      = "v4"
+DATA_PATH   = "data/processed/preprocessed_data_v4.pkl"
+MODEL_DIR   = f"models/{RUN_ID}"
+MODEL_KEY   = "lstm"
+MODEL_PATH  = os.path.join(MODEL_DIR, f"{MODEL_KEY}.pt")
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-BATCH_SIZE = 64
+BATCH_SIZE  = 64
+EPOCHS      = 30
+PATIENCE    = 8
+LR          = 1e-3
+SEED        = 42
+DEVICE      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# ====== LOAD & PREPROCESS DATA ======
-X_train, X_val, X_test, y_train, y_val, y_test, *_ = joblib.load(DATA_PATH)
+# LSTM hyperparams
+INPUT_SIZE  = 1         # we treat each feature as a time step, channel=1
+HIDDEN_SIZE = 64
+NUM_LAYERS  = 2
+DROPOUT     = 0.2
+NUM_CLASSES = 2
 
-# Dataset & DataLoader cho LSTM (shape: [batch, seq_len, input_dim=1])
+os.makedirs(MODEL_DIR, exist_ok=True)
+
+def set_seed(s=42):
+    import random
+    random.seed(s); np.random.seed(s); torch.manual_seed(s)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(s)
+
+# Dataset: turns each row into a sequence of length = n_features and channel=1
 class TabularSequenceDataset(Dataset):
     def __init__(self, X, y):
-        self.X = torch.tensor(X, dtype=torch.float32)
-        self.y = torch.tensor(y.values if hasattr(y, "values") else y, dtype=torch.long)
-    def __len__(self):
-        return len(self.X)
-    def __getitem__(self, idx):
-        # Chuyển mỗi dòng thành (seq_len, 1)
-        return {'inputs': self.X[idx].unsqueeze(-1), 'labels': self.y[idx]}
+        X_arr = X.values if hasattr(X, "values") else X
+        self.X = torch.tensor(X_arr, dtype=torch.float32)      # (N, seq_len)
+        y_arr = y.values if hasattr(y, "values") else y
+        self.y = torch.tensor(y_arr, dtype=torch.long)
+    def __len__(self): return len(self.X)
+    def __getitem__(self, i):
+        # (seq_len,) -> (seq_len, 1)
+        return {"inputs": self.X[i].unsqueeze(-1), "labels": self.y[i]}
 
-train_ds = TabularSequenceDataset(X_train, y_train)
-val_ds   = TabularSequenceDataset(X_val, y_val)
-test_ds  = TabularSequenceDataset(X_test, y_test)
-
-train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True, drop_last=False)
-val_loader   = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False, drop_last=False)
-test_loader  = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False, drop_last=False)
-
-# ====== LSTM MODEL ======
 class TabularLSTM(nn.Module):
     def __init__(self, input_size=1, hidden_size=64, num_layers=2, num_classes=2, dropout=0.2):
         super().__init__()
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout)
-        self.fc = nn.Linear(hidden_size, num_classes)
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers,
+                            batch_first=True, dropout=dropout)
+        self.fc   = nn.Linear(hidden_size, num_classes)
     def forward(self, x):
-        # x: (batch, seq_len, 1)
+        # x: (B, seq_len, 1)
         out, _ = self.lstm(x)
-        out = out[:, -1, :]  # lấy hidden cuối cùng
-        out = self.fc(out)
-        return out
+        out = out[:, -1, :]             # last time step
+        return self.fc(out)
 
-# ====== TRAINING LOOP ======
-def train_lstm(model, train_loader, val_loader, device, epochs=30, lr=1e-3, patience=8):
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    criterion = nn.CrossEntropyLoss()
-    model.to(device)
-    best_val_acc = 0
-    no_improve = 0
-    for epoch in range(epochs):
-        model.train()
-        total_loss = 0
-        for batch in train_loader:
-            inputs = batch['inputs'].to(device)  # (batch, seq_len, 1)
-            labels = batch['labels'].to(device)
-            logits = model(inputs)
-            loss = criterion(logits, labels)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            total_loss += loss.item()
-        # Validation
-        model.eval()
-        val_preds, val_labels = [], []
-        val_loss = 0
+def main():
+    set_seed(SEED)
+
+    # 1) Load data splits
+    X_train, X_val, X_test, y_train, y_val, y_test, *_ = joblib.load(DATA_PATH)
+    seq_len = int(X_train.shape[1])
+
+    # 2) Dataloaders (no scaling here to keep parity with your LSTM code)
+    train_loader = DataLoader(TabularSequenceDataset(X_train, y_train),
+                              batch_size=BATCH_SIZE, shuffle=True, drop_last=False)
+    val_loader   = DataLoader(TabularSequenceDataset(X_val,   y_val),
+                              batch_size=BATCH_SIZE, shuffle=False, drop_last=False)
+
+    # 3) Model + training loop (early stop by val acc), timed in ns
+    model = TabularLSTM(INPUT_SIZE, HIDDEN_SIZE, NUM_LAYERS, NUM_CLASSES, DROPOUT).to(DEVICE)
+    opt   = torch.optim.Adam(model.parameters(), lr=LR)
+    crit  = nn.CrossEntropyLoss()
+
+    best_val_acc, best_state, bad = 0.0, None, 0
+    t0_ns = time.perf_counter_ns()
+    for ep in range(1, EPOCHS + 1):
+        # train
+        model.train(); total = 0.0
+        for b in train_loader:
+            x, y = b["inputs"].to(DEVICE), b["labels"].to(DEVICE)
+            logits = model(x)
+            loss = crit(logits, y)
+            opt.zero_grad(); loss.backward(); opt.step()
+            total += loss.item()
+
+        # validate
+        model.eval(); preds, labs = [], []
         with torch.no_grad():
-            for batch in val_loader:
-                inputs = batch['inputs'].to(device)
-                labels = batch['labels'].to(device)
-                logits = model(inputs)
-                loss = criterion(logits, labels)
-                val_loss += loss.item()
-                preds = torch.argmax(logits, dim=1).cpu().numpy()
-                val_preds.extend(preds)
-                val_labels.extend(labels.cpu().numpy())
-        avg_train_loss = total_loss / len(train_loader)
-        avg_val_loss = val_loss / len(val_loader)
-        val_acc = np.mean(np.array(val_preds) == np.array(val_labels))
-        print(f"[LSTM] Epoch {epoch+1}: Train Loss={avg_train_loss:.4f}, Val Loss={avg_val_loss:.4f}, Val Acc={val_acc:.4f}")
+            for b in val_loader:
+                x, y = b["inputs"].to(DEVICE), b["labels"].to(DEVICE)
+                logits = model(x)
+                preds.extend(logits.argmax(1).cpu().numpy())
+                labs.extend(y.cpu().numpy())
+        val_acc = float((np.array(preds) == np.array(labs)).mean())
+        print(f"[LSTM][{ep:02d}] train_loss={total/len(train_loader):.4f}  val_acc={val_acc:.4f}")
+
         if val_acc > best_val_acc:
-            torch.save(model.state_dict(), MODEL_SAVE_PATH)
-            best_val_acc = val_acc
-            no_improve = 0
+            best_val_acc, best_state, bad = val_acc, {k: v.cpu() for k, v in model.state_dict().items()}, 0
         else:
-            no_improve += 1
-            if no_improve > patience:
-                print(f"⏹ [LSTM] Early stop at epoch {epoch+1}")
+            bad += 1
+            if bad > PATIENCE:
+                print("Early stop.")
                 break
-    print(f"✅ [LSTM] Best Val Acc: {best_val_acc:.4f}")
+    t1_ns = time.perf_counter_ns()
 
-# ====== EVALUATE ======
-def evaluate_lstm(model, test_loader, device, results_dir=RESULTS_DIR):
-    os.makedirs(results_dir, exist_ok=True)
-    model.eval()
-    all_preds, all_probs, all_labels = [], [], []
-    with torch.no_grad():
-        for batch in test_loader:
-            inputs = batch['inputs'].to(device)
-            labels = batch['labels'].to(device)
-            logits = model(inputs)
-            probs = torch.softmax(logits, dim=1).cpu().numpy()
-            preds = np.argmax(probs, axis=1)
-            all_preds.extend(preds)
-            all_probs.extend(probs[:, 1])
-            all_labels.extend(labels.cpu().numpy())
-    all_preds = np.array(all_preds)
-    all_probs = np.array(all_probs)
-    all_labels = np.array(all_labels)
-    # Classification report
-    report = classification_report(all_labels, all_preds, output_dict=True)
-    with open(f'{results_dir}/classification_report.json', 'w') as f:
-        json.dump(report, f, indent=4)
-    print(classification_report(all_labels, all_preds))
-    print("F1-micro:", f1_score(all_labels, all_preds, average='micro'))
-    # Confusion matrix (normalized as percentage)
-    cm = confusion_matrix(all_labels, all_preds, normalize='true')
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-    disp.plot(values_format='.2%')
-    plt.title('Confusion Matrix - LSTM')
-    plt.savefig(f'{results_dir}/confusion_matrix.pdf')
-    plt.savefig(f'{results_dir}/confusion_matrix.svg')
-    plt.close()
-    # ROC Curve
-    fpr, tpr, _ = roc_curve(all_labels, all_probs)
-    auc_score = roc_auc_score(all_labels, all_probs)
-    plt.figure()
-    plt.plot(fpr, tpr, label=f"AUC = {auc_score:.2f}")
-    plt.plot([0, 1], [0, 1], linestyle='--', color='gray')
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('ROC Curve - LSTM')
-    plt.legend()
-    plt.savefig(f"{results_dir}/roc_curve.pdf")
-    plt.savefig(f"{results_dir}/roc_curve.svg")
-    plt.close()
-    # Precision-Recall Curve
-    precision, recall, _ = precision_recall_curve(all_labels, all_probs)
-    plt.figure()
-    plt.plot(recall, precision, label='LSTM')
-    plt.xlabel('Recall')
-    plt.ylabel('Precision')
-    plt.title('Precision-Recall Curve - LSTM')
-    plt.legend()
-    plt.savefig(f"{results_dir}/pr_curve.pdf")
-    plt.savefig(f"{results_dir}/pr_curve.svg")
-    plt.close()
+    # 4) Save best model (.pt) + metadata JSON
+    torch.save(best_state, MODEL_PATH)
 
-# ====== RUN TRAINING & EVAL ======
-input_dim = X_train.shape[1]
-lstm_model = TabularLSTM(input_size=1, hidden_size=64, num_layers=2, num_classes=2, dropout=0.2)
-train_lstm(lstm_model, train_loader, val_loader, DEVICE, epochs=30, lr=1e-3, patience=8)
-lstm_model.load_state_dict(torch.load(MODEL_SAVE_PATH, map_location=DEVICE))
-evaluate_lstm(lstm_model, test_loader, DEVICE, results_dir=RESULTS_DIR)
+    # classes order for consistency (e.g., aligning probabilities later)
+    classes_sorted = [int(c) for c in sorted(np.unique(np.concatenate([y_train, y_val]).ravel()))]
+
+    meta = {
+        "run_id": RUN_ID,
+        "model_key": MODEL_KEY,
+        "architecture": "TabularLSTM",
+        "seq_len": seq_len,
+        "input_size": INPUT_SIZE,
+        "hidden_size": HIDDEN_SIZE,
+        "num_layers": NUM_LAYERS,
+        "dropout": DROPOUT,
+        "num_classes": NUM_CLASSES,
+        "train_samples": int(len(X_train)),
+        "val_samples": int(len(X_val)),
+        "classes_order": classes_sorted,
+        "class_distribution_train": {int(c): int((np.array(y_train)==c).sum()) for c in np.unique(y_train)},
+        "class_distribution_val":   {int(c): int((np.array(y_val)==c).sum())   for c in np.unique(y_val)},
+        "epochs_trained": ep,
+        "best_val_acc": best_val_acc,
+        "train_time_ns_total": int(t1_ns - t0_ns),
+        "seed": SEED,
+        "device": str(DEVICE),
+    }
+    with open(os.path.join(MODEL_DIR, f"{MODEL_KEY}_training_metadata.json"), "w") as f:
+        json.dump(meta, f, indent=2)
+
+    print(f"✅ Saved LSTM model to {MODEL_PATH}")
+    print("📝 Training metadata saved next to the model.")
+
+if __name__ == "__main__":
+    main()
