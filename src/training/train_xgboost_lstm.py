@@ -122,8 +122,8 @@ if __name__ == "__main__":
             "lr": LR
         },
         "outputs": {
-            "lstm": {"path": MODEL_LSTM_PATH, **lstm_info},
-            "xgb":  {"path": MODEL_XGB_PATH,  **xgb_info}
+            "lstm_com": {"path": MODEL_LSTM_PATH, **lstm_info},
+            "xgb_com":  {"path": MODEL_XGB_PATH,  **xgb_info}
         }
     }
     with open(MANIFEST_PATH, "w") as f:
