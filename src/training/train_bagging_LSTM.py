@@ -1,8 +1,9 @@
 # src/training/train_bagging_LSTM.py
 import os, json, time, numpy as np, joblib, torch, torch.nn as nn
-from torch.utils.data import Dataset, DataLoader, Subset
+from torch.utils.data import DataLoader, Subset
 from sklearn.utils import resample
 from xgboost import XGBClassifier
+from utils import TabularSequenceDataset, set_seed
 
 # ---------- Config ----------
 RUN_ID      = "v4"
@@ -24,24 +25,10 @@ EPOCHS      = 20
 PATIENCE    = 5
 LR          = 1e-3
 SEED        = 42
-
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-if torch.cuda.is_available():
-    torch.cuda.manual_seed_all(SEED)
+set_seed(SEED)
 
 # ---------- Data ----------
 X_train, X_val, X_test, y_train, y_val, y_test, *_ = joblib.load(DATA_PATH)
-
-class TabularSequenceDataset(Dataset):
-    def __init__(self, X, y):
-        X_arr = X.values if hasattr(X, "values") else X
-        y_arr = y.values if hasattr(y, "values") else y
-        self.X = torch.tensor(X_arr, dtype=torch.float32)
-        self.y = torch.tensor(y_arr, dtype=torch.long)
-    def __len__(self): return len(self.X)
-    def __getitem__(self, idx):
-        return {"inputs": self.X[idx].unsqueeze(-1), "labels": self.y[idx]}
 
 full_train_ds = TabularSequenceDataset(X_train, y_train)
 val_ds        = TabularSequenceDataset(X_val,   y_val)
