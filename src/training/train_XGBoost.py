@@ -6,7 +6,7 @@ from xgboost import XGBClassifier
 RUN_ID     = "v4"
 DATA_PATH  = "data/processed/preprocessed_data_v4.pkl"  # adjust if needed
 MODEL_DIR  = f"models/{RUN_ID}"
-MODEL_KEY  = "xgb"
+MODEL_KEY  = "XGBoost"
 MODEL_PATH = os.path.join(MODEL_DIR, f"{MODEL_KEY}.json")
 
 SEED       = 42
