@@ -1,6 +1,7 @@
 # src/training/train_BiLSTM.py
 import os, json, time, numpy as np, joblib, torch, torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
+from utils import TabularSequenceDataset, set_seed
 
 # ---------- Config ----------
 RUN_ID      = "v4"
@@ -17,24 +18,6 @@ SEED        = 42
 DEVICE      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 os.makedirs(MODEL_DIR, exist_ok=True)
-
-def set_seed(s=42):
-    import random
-    random.seed(s); np.random.seed(s); torch.manual_seed(s)
-    if torch.cuda.is_available(): torch.cuda.manual_seed_all(s)
-
-# ---------- Dataset ----------
-class TabularSequenceDataset(Dataset):
-    """
-    Treat each feature vector as a length-T sequence with input_size=1:
-      X[i] -> (seq_len=T, 1)
-    """
-    def __init__(self, X, y):
-        self.X = torch.tensor(X, dtype=torch.float32)
-        self.y = torch.tensor(y.values if hasattr(y, "values") else y, dtype=torch.long)
-    def __len__(self): return len(self.X)
-    def __getitem__(self, idx):
-        return {"inputs": self.X[idx].unsqueeze(-1), "labels": self.y[idx]}
 
 # ---------- Model ----------
 class TabularBiLSTM(nn.Module):
