@@ -1,5 +1,6 @@
 # Script to generate prediction files for all models without retraining
 import os
+
 import joblib
 import numpy as np
 import torch
@@ -9,22 +10,14 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from xgboost import XGBClassifier
 
+from ..training.utils import TabularSequenceDataset
+
 PRED_DIR = 'predictions'
 os.makedirs(PRED_DIR, exist_ok=True)
 
 # =====================
 # Utility functions
 # =====================
-class TabularSequenceDataset(Dataset):
-    def __init__(self, X, y):
-        X_arr = X.values if hasattr(X, 'values') else X
-        self.X = torch.tensor(X_arr, dtype=torch.float32)
-        self.y = torch.tensor(y.values if hasattr(y, 'values') else y, dtype=torch.long)
-    def __len__(self):
-        return len(self.X)
-    def __getitem__(self, idx):
-        return {'inputs': self.X[idx].unsqueeze(-1), 'labels': self.y[idx]}
-
 class TabularDataset(Dataset):
     def __init__(self, X, y):
         X_arr = X.values if hasattr(X, 'values') else X

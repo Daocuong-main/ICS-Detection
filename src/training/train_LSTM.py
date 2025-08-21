@@ -1,6 +1,7 @@
 # src/training/train_LSTM.py
 import os, json, time, joblib, numpy as np, torch, torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
+from .utils import TabularSequenceDataset, set_seed
 
 # ---------- Config ----------
 RUN_ID      = "v4"
@@ -24,24 +25,6 @@ DROPOUT     = 0.2
 NUM_CLASSES = 2
 
 os.makedirs(MODEL_DIR, exist_ok=True)
-
-def set_seed(s=42):
-    import random
-    random.seed(s); np.random.seed(s); torch.manual_seed(s)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(s)
-
-# Dataset: turns each row into a sequence of length = n_features and channel=1
-class TabularSequenceDataset(Dataset):
-    def __init__(self, X, y):
-        X_arr = X.values if hasattr(X, "values") else X
-        self.X = torch.tensor(X_arr, dtype=torch.float32)      # (N, seq_len)
-        y_arr = y.values if hasattr(y, "values") else y
-        self.y = torch.tensor(y_arr, dtype=torch.long)
-    def __len__(self): return len(self.X)
-    def __getitem__(self, i):
-        # (seq_len,) -> (seq_len, 1)
-        return {"inputs": self.X[i].unsqueeze(-1), "labels": self.y[i]}
 
 class TabularLSTM(nn.Module):
     def __init__(self, input_size=1, hidden_size=64, num_layers=2, num_classes=2, dropout=0.2):
