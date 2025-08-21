@@ -2,7 +2,8 @@
 import os, json, time, joblib, numpy as np, torch, torch.nn as nn
 from torch.utils.data import DataLoader
 from xgboost import XGBClassifier
-from utils import TabularSequenceDataset, set_seed
+
+from .utils import TabularSequenceDataset, set_seed
 
 # ---------- Config ----------
 RUN_ID          = "v4"

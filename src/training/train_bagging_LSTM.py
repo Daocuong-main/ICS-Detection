@@ -3,7 +3,8 @@ import os, json, time, numpy as np, joblib, torch, torch.nn as nn
 from torch.utils.data import DataLoader, Subset
 from sklearn.utils import resample
 from xgboost import XGBClassifier
-from utils import TabularSequenceDataset, set_seed
+
+from .utils import TabularSequenceDataset, set_seed
 
 # ---------- Config ----------
 RUN_ID      = "v4"

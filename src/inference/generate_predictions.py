@@ -1,7 +1,5 @@
 # Script to generate prediction files for all models without retraining
 import os
-import sys
-from pathlib import Path
 
 import joblib
 import numpy as np
@@ -12,8 +10,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from xgboost import XGBClassifier
 
-sys.path.append(str(Path(__file__).resolve().parents[1] / "training"))
-from utils import TabularSequenceDataset
+from ..training.utils import TabularSequenceDataset
 
 PRED_DIR = 'predictions'
 os.makedirs(PRED_DIR, exist_ok=True)
