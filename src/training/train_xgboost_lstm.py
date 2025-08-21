@@ -7,12 +7,12 @@ from xgboost import XGBClassifier
 RUN_ID          = "v4"
 DATA_PATH       = f"data/processed/preprocessed_data_{RUN_ID}.pkl"
 
-MODEL_LSTM_PATH = f"models/models_{RUN_ID}/model_lstm.pt"
-MODEL_XGB_PATH  = f"models/models_{RUN_ID}/model_xgb.pkl"
-MANIFEST_PATH   = f"models/models_{RUN_ID}/xgb_lstm_training_manifest.json"
+MODEL_DIR       = f"models/{RUN_ID}"
+MODEL_LSTM_PATH = f"{MODEL_DIR}/model_lstm.pt"
+MODEL_XGB_PATH  = f"{MODEL_DIR}/model_xgb.pkl"
+MANIFEST_PATH   = f"{MODEL_DIR}/xgb_lstm_training_manifest.json"
 
-for p in [os.path.dirname(MODEL_LSTM_PATH), os.path.dirname(MODEL_XGB_PATH)]:
-    os.makedirs(p, exist_ok=True)
+os.makedirs(MODEL_DIR, exist_ok=True)
 
 DEVICE     = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE = 64
