@@ -1,7 +1,8 @@
 # src/training/train_xgboost_lstm.py
 import os, json, time, joblib, numpy as np, torch, torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from xgboost import XGBClassifier
+from .utils import TabularSequenceDataset, set_seed
 
 # ---------- Config ----------
 RUN_ID          = "v4"
@@ -20,22 +21,10 @@ EPOCHS     = 30
 PATIENCE   = 8
 LR         = 1e-3
 SEED       = 42
-
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-if torch.cuda.is_available():
-    torch.cuda.manual_seed_all(SEED)
+set_seed(SEED)
 
 # ---------- Data ----------
 X_train, X_val, X_test, y_train, y_val, y_test, *_ = joblib.load(DATA_PATH)
-
-class TabularSequenceDataset(Dataset):
-    def __init__(self, X, y):
-        self.X = torch.tensor(X, dtype=torch.float32)
-        self.y = torch.tensor(y.values if hasattr(y, "values") else y, dtype=torch.long)
-    def __len__(self): return len(self.X)
-    def __getitem__(self, idx):
-        return {"inputs": self.X[idx].unsqueeze(-1), "labels": self.y[idx]}
 
 train_loader = DataLoader(TabularSequenceDataset(X_train, y_train),
                           batch_size=BATCH_SIZE, shuffle=True)
