@@ -11,8 +11,7 @@ from tools.evalkit import save_run_artifacts, time_inference_ns
 RUN_ID        = "v4"
 DATA_PATH     = f"data/processed/preprocessed_data_{RUN_ID}.pkl"
 EVAL_DIR      = f"outputs/eval_{RUN_ID}"
-MODELS_DIR    = f"models/models_{RUN_ID}"
-OTHERS_DIR    = f"models/{RUN_ID}"
+MODELS_DIR    = f"models/{RUN_ID}"
 SCALERS_DIR   = f"scalers/{RUN_ID}"
 BATCH_SIZE    = 64
 DEVICE        = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -164,7 +163,7 @@ def eval_lstm():
 # 2) BiLSTM
 # -----------------------------
 def eval_bilstm():
-    path = os.path.join(MODELS_DIR, "model_bilstm.pt")
+    path = os.path.join(MODELS_DIR, "bilstm.pt")
     if not os.path.exists(path):
         print("[bilstm] skipped (model not found)."); return
     model = TabularBiLSTM().to(DEVICE)
@@ -179,7 +178,7 @@ def eval_bilstm():
 # 3) Tabular Transformer (uses scaler)
 # -----------------------------
 def eval_transformer():
-    model_path  = os.path.join(OTHERS_DIR, "tabtransformer.pt")
+    model_path  = os.path.join(MODELS_DIR, "tabtransformer.pt")
     scaler_paths = [
         os.path.join("scalers", RUN_ID, "tabtransformer_scaler.pkl"),
         os.path.join("scalers", "tabtransformer_scaler.pkl"),
@@ -208,7 +207,7 @@ def eval_transformer():
 #     (We evaluate the linear head output the same way as training)
 # -----------------------------
 def eval_secbert():
-    model_path  = os.path.join(OTHERS_DIR, "secbert.pt")
+    model_path  = os.path.join(MODELS_DIR, "secbert.pt")
     scaler_paths = [
         os.path.join("scalers", RUN_ID, "secbert_scaler.pkl"),
         os.path.join("scalers", "secbert_scaler.pkl"),
@@ -325,16 +324,16 @@ def eval_sklearn_like(model_key, model_path, use_flat=False):
                              positive_class_name="attack", notes=f"{model_key} eval")
     print_done(model_key, out)
 
-def eval_rf():     eval_sklearn_like("rf",     os.path.join(MODELS_DIR, "model_rf.pkl"),     use_flat=False)
-def eval_dt():     eval_sklearn_like("dtree",  os.path.join(MODELS_DIR, "model_dtree.pkl"),  use_flat=False)
-def eval_xgb():    eval_sklearn_like("xgb",    os.path.join(MODELS_DIR, "model_xgb.json"),   use_flat=True)
-def eval_xgbrf():  eval_sklearn_like("xgbrf",  os.path.join(OTHERS_DIR, "xgbrf.pkl"),  use_flat=False)
+def eval_rf():     eval_sklearn_like("Random Forest",     os.path.join(MODELS_DIR, "rf.pkl"),     use_flat=False)
+def eval_dt():     eval_sklearn_like("Decision Tree",  os.path.join(MODELS_DIR, "dtree.pkl"),  use_flat=False)
+def eval_xgb():    eval_sklearn_like("XGBoost",    os.path.join(MODELS_DIR, "XGBoost.json"),   use_flat=True)
+def eval_xgbrf():  eval_sklearn_like("xgbrf",  os.path.join(MODELS_DIR, "xgbrf.pkl"),  use_flat=False)
 
 # -----------------------------
 # 6) Bagged LSTM / Bagged XGB
 # -----------------------------
 def eval_bagged_lstm():
-    paths = sorted(glob.glob(os.path.join(MODELS_DIR, "lstm_bag_*.pt")))
+    paths = sorted(glob.glob(os.path.join(MODELS_DIR, "lstm_bag/lstm_bag_*.pt")))
     if not paths:
         print("[lstm_bag] skipped (no bag models found)."); return
     test_loader = DataLoader(SeqDS(X_test_raw, y_test), batch_size=BATCH_SIZE, shuffle=False)
@@ -349,7 +348,7 @@ def eval_bagged_lstm():
     print_done("lstm_bag", out)
 
 def eval_bagged_xgb():
-    paths = sorted(glob.glob(os.path.join(MODELS_DIR, "xgb_bag_*.pkl")))
+    paths = sorted(glob.glob(os.path.join(MODELS_DIR, "xgb_bag/xgb_bag_*.pkl")))
     if not paths:
         print("[xgb_bag] skipped (no bag models found)."); return
     probs_bags = []
@@ -366,7 +365,7 @@ def eval_bagged_xgb():
 def eval_ensemble_lstm_xgb():
     # Need both component models
     lstm_path = os.path.join(MODELS_DIR, "model_lstm.pt")
-    xgb_path  = os.path.join(MODELS_DIR, "model_xgb.json")
+    xgb_path  = os.path.join(MODELS_DIR, "model_xgb.pkl")
     if not (os.path.exists(lstm_path) and os.path.exists(xgb_path)):
         print("[ensemble_avg] skipped (needs model_lstm.pt and model_xgb.json)."); return
 

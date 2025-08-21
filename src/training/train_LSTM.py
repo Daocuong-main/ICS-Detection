@@ -8,7 +8,7 @@ from .utils import TabularSequenceDataset, set_seed
 RUN_ID      = "v4"
 DATA_PATH   = "data/processed/preprocessed_data_v4.pkl"
 MODEL_DIR   = f"models/{RUN_ID}"
-MODEL_KEY   = "lstm"
+MODEL_KEY   = "LSTM"
 MODEL_PATH  = os.path.join(MODEL_DIR, f"{MODEL_KEY}.pt")
 
 BATCH_SIZE  = 64
