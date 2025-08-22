@@ -161,7 +161,7 @@ def print_done(model_key, out):
 # 1) LSTM
 # -----------------------------
 def eval_lstm():
-    path = os.path.join(MODELS_DIR, "model_lstm.pt")
+    path = os.path.join(MODELS_DIR, "LSTM.pt")
     if not os.path.exists(path):
         print("[lstm] skipped (model not found)."); return
     model = TabularLSTM().to(DEVICE)
