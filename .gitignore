@@ -1,6 +1,12 @@
-data/
 models/
 outputs/
 scalers/
 .stfolder/
 __pycache__/
+data/raw/
+data/processed/preprocessed_data_full_features.pkl
+data/processed/preprocessed_data_v2.pkl
+data/processed/preprocessed_data_v3.pkl
+data/processed/preprocessed_data_v6.pkl
+data/processed/preprocessed_data_v7.pkl
+data/processed/preprocessed_data1.pkl
