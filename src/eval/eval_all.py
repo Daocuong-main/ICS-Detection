@@ -115,6 +115,19 @@ class FeatureTransformerV2(nn.Module):
             return (-smoothed * logp).sum(dim=1).mean()
         return nn.CrossEntropyLoss()(logits, targets)
 
+class SimpleMLP(nn.Module):
+    def __init__(self, input_dim, hidden=[128, 64, 32], num_classes=2, p=0.2):
+        super().__init__()
+        layers, prev = [], input_dim
+        for h in hidden:
+            layers += [nn.Linear(prev, h), nn.ReLU(), nn.Dropout(p)]
+            prev = h
+        layers.append(nn.Linear(prev, num_classes))
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.net(x)
+
 # -----------------------------
 # Eval helpers
 # -----------------------------
@@ -307,7 +320,39 @@ def eval_secbert():
 
 
 # -----------------------------
-# 5) RandomForest / DecisionTree / XGB / XGBRF
+# 5) MLP (uses scaler)
+# -----------------------------
+def eval_mlp():
+    model_path = os.path.join(MODELS_DIR, "MLP.pt")
+    scaler_path = os.path.join(SCALERS_DIR, "MLP_scaler.pkl")
+    if not (os.path.exists(model_path) and os.path.exists(scaler_path)):
+        print("[mlp] skipped (model or scaler not found)."); return
+    scaler = joblib.load(scaler_path)
+    X_test_scaled = scaler.transform(X_test_raw)
+    model = SimpleMLP(input_dim=X_test_scaled.shape[1], num_classes=2).to(DEVICE)
+    model.load_state_dict(torch.load(model_path, map_location=DEVICE))
+    test_loader = DataLoader(TabularDS(X_test_scaled, y_test), batch_size=BATCH_SIZE, shuffle=False)
+
+    @torch.no_grad()
+    def _infer(loader, m, dev):
+        m.eval(); out = []
+        for b in loader:
+            x = b["inputs"].to(dev)
+            out.append(torch.softmax(m(x), dim=1)[:, 1].cpu().numpy())
+        return np.concatenate(out)
+
+    elapsed, probs = time_inference_ns(_infer, test_loader, model, DEVICE)
+    out = save_run_artifacts(
+        EVAL_DIR, "mlp", y_test, probs,
+        eval_time_ns_total=int(elapsed),
+        positive_class_name="attack",
+        notes="Simple MLP (scaled tabular)"
+    )
+    print_done("mlp", out)
+
+
+# -----------------------------
+# 6) RandomForest / DecisionTree / XGB / XGBRF
 # -----------------------------
 def eval_sklearn_like(model_key, model_path, use_flat=False):
     if not os.path.exists(model_path):
@@ -330,7 +375,7 @@ def eval_xgb():    eval_sklearn_like("XGBoost",    os.path.join(MODELS_DIR, "XGB
 def eval_xgbrf():  eval_sklearn_like("xgbrf",  os.path.join(MODELS_DIR, "xgbrf.pkl"),  use_flat=False)
 
 # -----------------------------
-# 6) Bagged LSTM / Bagged XGB
+# 7) Bagged LSTM / Bagged XGB
 # -----------------------------
 def eval_bagged_lstm():
     paths = sorted(glob.glob(os.path.join(MODELS_DIR, "lstm_bag/lstm_bag_*.pt")))
@@ -360,7 +405,7 @@ def eval_bagged_xgb():
     print_done("xgb_bag", out)
 
 # -----------------------------
-# 7) Simple Ensemble: (LSTM + XGB) / 2
+# 8) Simple Ensemble: (LSTM + XGB) / 2
 # -----------------------------
 def eval_ensemble_lstm_xgb():
     # Need both component models
@@ -393,6 +438,7 @@ if __name__ == "__main__":
     eval_bilstm()
     eval_transformer()
     eval_secbert()
+    eval_mlp()
     eval_rf()
     eval_dt()
     eval_xgb()
