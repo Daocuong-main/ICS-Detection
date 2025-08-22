@@ -1,1 +1,15 @@
-* text=auto
+# Default: keep LF in repo & working tree
+* text=auto eol=lf
+
+# Windows-only scripts that truly need CRLF on checkout (optional)
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Binary files (never change line endings)
+*.png  binary
+*.jpg  binary
+*.pdf  binary
+
+# Notebooks can be sensitive to EOL; avoid normalization
+*.ipynb -text
