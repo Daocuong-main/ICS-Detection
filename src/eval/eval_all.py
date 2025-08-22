@@ -326,7 +326,7 @@ def eval_sklearn_like(model_key, model_path, use_flat=False):
 
 def eval_rf():     eval_sklearn_like("Random Forest",     os.path.join(MODELS_DIR, "rf.pkl"),     use_flat=False)
 def eval_dt():     eval_sklearn_like("Decision Tree",  os.path.join(MODELS_DIR, "dtree.pkl"),  use_flat=False)
-def eval_xgb():    eval_sklearn_like("XGBoost",    os.path.join(MODELS_DIR, "XGBoost.json"),   use_flat=True)
+def eval_xgb():    eval_sklearn_like("XGBoost",    os.path.join(MODELS_DIR, "model_xgb.pkl"),   use_flat=True)
 def eval_xgbrf():  eval_sklearn_like("xgbrf",  os.path.join(MODELS_DIR, "xgbrf.pkl"),  use_flat=False)
 
 # -----------------------------
@@ -367,7 +367,7 @@ def eval_ensemble_lstm_xgb():
     lstm_path = os.path.join(MODELS_DIR, "model_lstm.pt")
     xgb_path  = os.path.join(MODELS_DIR, "model_xgb.pkl")
     if not (os.path.exists(lstm_path) and os.path.exists(xgb_path)):
-        print("[ensemble_avg] skipped (needs model_lstm.pt and model_xgb.json)."); return
+        print("[ensemble_avg] skipped (needs model_lstm.pt and model_xgb.pkl)."); return
 
     # LSTM probs
     lstm = TabularLSTM().to(DEVICE)
@@ -376,7 +376,7 @@ def eval_ensemble_lstm_xgb():
     _, probs_lstm = time_inference_ns(infer_probs_seq, lstm, test_loader, DEVICE)
 
     # XGB probs
-    xgb = XGBClassifier(); xgb.load_model(xgb_path)
+    xgb = joblib.load(xgb_path)
     def _pp(m, X): return m.predict_proba(X)[:, 1]
     _, probs_xgb = time_inference_ns(_pp, xgb, X_test_flat)
 

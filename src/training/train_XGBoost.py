@@ -7,7 +7,7 @@ RUN_ID     = "v4"
 DATA_PATH  = "data/processed/preprocessed_data_v4.pkl"  # adjust if needed
 MODEL_DIR  = f"models/{RUN_ID}"
 MODEL_KEY  = "XGBoost"
-MODEL_PATH = os.path.join(MODEL_DIR, f"{MODEL_KEY}.json")
+MODEL_PATH = os.path.join(MODEL_DIR, "model_xgb.pkl")
 
 SEED       = 42
 os.makedirs(MODEL_DIR, exist_ok=True)
@@ -46,7 +46,7 @@ def main():
     t1_ns = time.perf_counter_ns()
 
     # 5) Save model + metadata
-    model.save_model(MODEL_PATH)
+    joblib.dump(model, MODEL_PATH)
 
     meta = {
         "run_id": RUN_ID,

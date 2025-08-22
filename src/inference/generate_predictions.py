@@ -74,8 +74,7 @@ def gen_xgboost():
     if os.path.exists(path):
         return
     X_train, X_val, X_test, y_train, y_val, y_test, *_ = joblib.load('preprocessed_data_v4.pkl')
-    model = XGBClassifier()
-    model.load_model('models/model_xgb.json')
+    model = joblib.load('models/model_xgb.pkl')
     probs = model.predict_proba(X_test)[:, 1]
     save_npz('XGBoost', y_test, probs)
 
