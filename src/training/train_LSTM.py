@@ -9,7 +9,7 @@ RUN_ID      = "v4"
 DATA_PATH   = "data/processed/preprocessed_data_v4.pkl"
 MODEL_DIR   = f"models/{RUN_ID}"
 MODEL_KEY   = "LSTM"
-MODEL_PATH  = os.path.join(MODEL_DIR, f"{MODEL_KEY}.pt")
+MODEL_PATH  = os.path.join(MODEL_DIR, "model_lstm.pt")
 
 BATCH_SIZE  = 64
 EPOCHS      = 30
