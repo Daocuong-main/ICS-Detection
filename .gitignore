@@ -1,6 +1,4 @@
-models/
 outputs/
-scalers/
 .stfolder/
 __pycache__/
 data/raw/

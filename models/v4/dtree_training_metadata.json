@@ -1,0 +1,25 @@
+{
+  "run_id": "v4",
+  "model_key": "dtree",
+  "sklearn_version": "1.6.1",
+  "train_features": 50,
+  "train_samples": 157449,
+  "class_distribution": {
+    "0": 139788,
+    "1": 17661
+  },
+  "classes_order": [
+    0,
+    1
+  ],
+  "dt_params": {
+    "criterion": "gini",
+    "max_depth": null,
+    "min_samples_split": 2,
+    "min_samples_leaf": 1,
+    "random_state": 42
+  },
+  "train_time_ns_total": 932889806,
+  "seed": 42,
+  "device": "cpu"
+}

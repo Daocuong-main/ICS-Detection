@@ -1,0 +1,28 @@
+{
+  "run_id": "v4",
+  "seed": 42,
+  "device": "cuda",
+  "config": {
+    "batch_size": 64,
+    "epochs": 30,
+    "patience": 8,
+    "lr": 0.001
+  },
+  "outputs": {
+    "lstm_com": {
+      "path": "models/v4/model_lstm.pt",
+      "best_val_acc": 0.9692280007198129,
+      "epochs_trained": 16,
+      "train_time_ns": 47981596140
+    },
+    "xgb_com": {
+      "path": "models/v4/model_xgb.pkl",
+      "params": {
+        "n_estimators": 100,
+        "eval_metric": "logloss",
+        "random_state": 42
+      },
+      "train_time_ns": 300016025
+    }
+  }
+}

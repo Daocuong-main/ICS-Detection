@@ -1,0 +1,38 @@
+{
+  "run_id": "v4",
+  "model_key": "tabtransformer",
+  "architecture": "FeatureTransformerV2",
+  "params": {
+    "emb_dim": 32,
+    "n_layers": 6,
+    "n_heads": 4,
+    "ff_factor": 4,
+    "dropout": 0.1,
+    "label_smooth": 0.05
+  },
+  "num_classes": 2,
+  "input_dim": 50,
+  "train_samples": 129664,
+  "val_samples": 27785,
+  "classes_order": [
+    0,
+    1
+  ],
+  "class_distribution_train": {
+    "0": 115119,
+    "1": 14545
+  },
+  "class_distribution_val": {
+    "0": 24669,
+    "1": 3116
+  },
+  "epochs_trained": 9,
+  "best_val_acc": 0.9457621018535181,
+  "train_time_ns_total": 116933619984,
+  "seed": 42,
+  "device": "cuda",
+  "paths": {
+    "model": "models/v4/tabtransformer.pt",
+    "scaler": "scalers/v4/tabtransformer_scaler.pkl"
+  }
+}
