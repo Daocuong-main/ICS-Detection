@@ -16,7 +16,7 @@
     157449,
     50
   ],
-  "train_time_ns_total": 708326316,
+  "train_time_ns_total": 705739922,
   "seed": 42,
   "paths": {
     "model": "models/v4/XGBoost.json"

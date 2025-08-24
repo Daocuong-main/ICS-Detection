@@ -28,7 +28,7 @@
   },
   "epochs_trained": 9,
   "best_val_acc": 0.9457621018535181,
-  "train_time_ns_total": 116933619984,
+  "train_time_ns_total": 114604384189,
   "seed": 42,
   "device": "cuda",
   "paths": {

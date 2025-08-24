@@ -19,7 +19,7 @@
     "min_samples_leaf": 1,
     "random_state": 42
   },
-  "train_time_ns_total": 932889806,
+  "train_time_ns_total": 910033361,
   "seed": 42,
   "device": "cpu"
 }

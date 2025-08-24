@@ -4,7 +4,7 @@
   "input_dim": 50,
   "epochs_trained": 16,
   "best_val_acc": 0.9692999820046788,
-  "train_time_ns_total": 30903659206,
+  "train_time_ns_total": 30831426546,
   "seed": 42,
   "device": "cuda"
 }

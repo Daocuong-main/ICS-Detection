@@ -16,128 +16,128 @@
         "index": 0,
         "path": "models/v4/lstm_bag/lstm_bag_0.pt",
         "best_val_acc": 0.9691920100773799,
-        "train_time_ns": 35763796330
+        "train_time_ns": 36840373857
       },
       {
         "index": 1,
         "path": "models/v4/lstm_bag/lstm_bag_1.pt",
         "best_val_acc": 0.9691560194349469,
-        "train_time_ns": 39189318502
+        "train_time_ns": 38696524982
       },
       {
         "index": 2,
         "path": "models/v4/lstm_bag/lstm_bag_2.pt",
         "best_val_acc": 0.9690840381500809,
-        "train_time_ns": 32807161919
+        "train_time_ns": 32678596351
       },
       {
         "index": 3,
         "path": "models/v4/lstm_bag/lstm_bag_3.pt",
         "best_val_acc": 0.9690840381500809,
-        "train_time_ns": 38704753922
+        "train_time_ns": 38179741080
       },
       {
         "index": 4,
         "path": "models/v4/lstm_bag/lstm_bag_4.pt",
         "best_val_acc": 0.9691200287925139,
-        "train_time_ns": 23945834989
+        "train_time_ns": 23900732935
       },
       {
         "index": 5,
         "path": "models/v4/lstm_bag/lstm_bag_5.pt",
         "best_val_acc": 0.9690120568652151,
-        "train_time_ns": 44254849437
+        "train_time_ns": 43984434385
       },
       {
         "index": 6,
         "path": "models/v4/lstm_bag/lstm_bag_6.pt",
         "best_val_acc": 0.9691560194349469,
-        "train_time_ns": 32999520942
+        "train_time_ns": 32507177925
       },
       {
         "index": 7,
         "path": "models/v4/lstm_bag/lstm_bag_7.pt",
         "best_val_acc": 0.9687241317257513,
-        "train_time_ns": 24348131367
+        "train_time_ns": 23842451619
       },
       {
         "index": 8,
         "path": "models/v4/lstm_bag/lstm_bag_8.pt",
         "best_val_acc": 0.9691560194349469,
-        "train_time_ns": 44536475471
+        "train_time_ns": 44768935702
       },
       {
         "index": 9,
         "path": "models/v4/lstm_bag/lstm_bag_9.pt",
         "best_val_acc": 0.9691560194349469,
-        "train_time_ns": 47695606486
+        "train_time_ns": 47223565497
       },
       {
         "index": 10,
         "path": "models/v4/lstm_bag/lstm_bag_10.pt",
         "best_val_acc": 0.9691200287925139,
-        "train_time_ns": 29994977634
+        "train_time_ns": 29568103276
       },
       {
         "index": 11,
         "path": "models/v4/lstm_bag/lstm_bag_11.pt",
         "best_val_acc": 0.9690840381500809,
-        "train_time_ns": 23860920130
+        "train_time_ns": 23893000276
       },
       {
         "index": 12,
         "path": "models/v4/lstm_bag/lstm_bag_12.pt",
         "best_val_acc": 0.9691920100773799,
-        "train_time_ns": 44759540382
+        "train_time_ns": 44588937022
       },
       {
         "index": 13,
         "path": "models/v4/lstm_bag/lstm_bag_13.pt",
         "best_val_acc": 0.9691920100773799,
-        "train_time_ns": 38850942745
+        "train_time_ns": 38347213805
       },
       {
         "index": 14,
         "path": "models/v4/lstm_bag/lstm_bag_14.pt",
         "best_val_acc": 0.9691560194349469,
-        "train_time_ns": 59565563749
+        "train_time_ns": 59416103740
       },
       {
         "index": 15,
         "path": "models/v4/lstm_bag/lstm_bag_15.pt",
         "best_val_acc": 0.9691920100773799,
-        "train_time_ns": 33000588703
+        "train_time_ns": 32439577224
       },
       {
         "index": 16,
         "path": "models/v4/lstm_bag/lstm_bag_16.pt",
         "best_val_acc": 0.9687241317257513,
-        "train_time_ns": 21412258173
+        "train_time_ns": 20536644703
       },
       {
         "index": 17,
         "path": "models/v4/lstm_bag/lstm_bag_17.pt",
         "best_val_acc": 0.9691920100773799,
-        "train_time_ns": 39182824667
+        "train_time_ns": 38444732130
       },
       {
         "index": 18,
         "path": "models/v4/lstm_bag/lstm_bag_18.pt",
         "best_val_acc": 0.9691920100773799,
-        "train_time_ns": 57013479991
+        "train_time_ns": 56453245583
       },
       {
         "index": 19,
         "path": "models/v4/lstm_bag/lstm_bag_19.pt",
         "best_val_acc": 0.9691200287925139,
-        "train_time_ns": 21050629058
+        "train_time_ns": 20993905446
       }
     ],
     "xgb_bags": [
       {
         "index": 0,
         "path": "models/v4/xgb_bag/xgb_bag_0.pkl",
-        "train_time_ns": 498648497,
+        "train_time_ns": 308057017,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -147,7 +147,7 @@
       {
         "index": 1,
         "path": "models/v4/xgb_bag/xgb_bag_1.pkl",
-        "train_time_ns": 340345728,
+        "train_time_ns": 314366241,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -157,7 +157,7 @@
       {
         "index": 2,
         "path": "models/v4/xgb_bag/xgb_bag_2.pkl",
-        "train_time_ns": 388651383,
+        "train_time_ns": 281750528,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -167,7 +167,7 @@
       {
         "index": 3,
         "path": "models/v4/xgb_bag/xgb_bag_3.pkl",
-        "train_time_ns": 280363306,
+        "train_time_ns": 272697129,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -177,7 +177,7 @@
       {
         "index": 4,
         "path": "models/v4/xgb_bag/xgb_bag_4.pkl",
-        "train_time_ns": 302092282,
+        "train_time_ns": 382239007,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -187,7 +187,7 @@
       {
         "index": 5,
         "path": "models/v4/xgb_bag/xgb_bag_5.pkl",
-        "train_time_ns": 284069018,
+        "train_time_ns": 277135254,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -197,7 +197,7 @@
       {
         "index": 6,
         "path": "models/v4/xgb_bag/xgb_bag_6.pkl",
-        "train_time_ns": 361527924,
+        "train_time_ns": 277586608,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -207,7 +207,7 @@
       {
         "index": 7,
         "path": "models/v4/xgb_bag/xgb_bag_7.pkl",
-        "train_time_ns": 338056983,
+        "train_time_ns": 275337495,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -217,7 +217,7 @@
       {
         "index": 8,
         "path": "models/v4/xgb_bag/xgb_bag_8.pkl",
-        "train_time_ns": 284446442,
+        "train_time_ns": 306606146,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -227,7 +227,7 @@
       {
         "index": 9,
         "path": "models/v4/xgb_bag/xgb_bag_9.pkl",
-        "train_time_ns": 278277628,
+        "train_time_ns": 269909227,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -237,7 +237,7 @@
       {
         "index": 10,
         "path": "models/v4/xgb_bag/xgb_bag_10.pkl",
-        "train_time_ns": 373225417,
+        "train_time_ns": 276799584,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -247,7 +247,7 @@
       {
         "index": 11,
         "path": "models/v4/xgb_bag/xgb_bag_11.pkl",
-        "train_time_ns": 303803477,
+        "train_time_ns": 298348534,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -257,7 +257,7 @@
       {
         "index": 12,
         "path": "models/v4/xgb_bag/xgb_bag_12.pkl",
-        "train_time_ns": 289107527,
+        "train_time_ns": 280007559,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -267,7 +267,7 @@
       {
         "index": 13,
         "path": "models/v4/xgb_bag/xgb_bag_13.pkl",
-        "train_time_ns": 284158842,
+        "train_time_ns": 276296803,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -277,7 +277,7 @@
       {
         "index": 14,
         "path": "models/v4/xgb_bag/xgb_bag_14.pkl",
-        "train_time_ns": 296624935,
+        "train_time_ns": 597330377,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -287,7 +287,7 @@
       {
         "index": 15,
         "path": "models/v4/xgb_bag/xgb_bag_15.pkl",
-        "train_time_ns": 333711326,
+        "train_time_ns": 358719154,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -297,7 +297,7 @@
       {
         "index": 16,
         "path": "models/v4/xgb_bag/xgb_bag_16.pkl",
-        "train_time_ns": 285208366,
+        "train_time_ns": 298149337,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -307,7 +307,7 @@
       {
         "index": 17,
         "path": "models/v4/xgb_bag/xgb_bag_17.pkl",
-        "train_time_ns": 297356630,
+        "train_time_ns": 280077169,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -317,7 +317,7 @@
       {
         "index": 18,
         "path": "models/v4/xgb_bag/xgb_bag_18.pkl",
-        "train_time_ns": 314650827,
+        "train_time_ns": 285650207,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",
@@ -327,7 +327,7 @@
       {
         "index": 19,
         "path": "models/v4/xgb_bag/xgb_bag_19.pkl",
-        "train_time_ns": 417557285,
+        "train_time_ns": 457911305,
         "params": {
           "n_estimators": 100,
           "eval_metric": "logloss",

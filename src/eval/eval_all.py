@@ -383,13 +383,15 @@ def eval_bagged_lstm():
         print("[lstm_bag] skipped (no bag models found)."); return
     test_loader = DataLoader(SeqDS(X_test_raw, y_test), batch_size=BATCH_SIZE, shuffle=False)
     probs_bags = []
+    total_elapsed = 0
     for p in paths:
         m = TabularLSTM().to(DEVICE)
         m.load_state_dict(torch.load(p, map_location=DEVICE))
-        probs = infer_probs_seq(m, test_loader, DEVICE)
+        elapsed_sub, probs = time_inference_ns(infer_probs_seq, m, test_loader, DEVICE)
         probs_bags.append(probs)
+        total_elapsed += elapsed_sub
     probs_mean = np.mean(np.stack(probs_bags, axis=0), axis=0)
-    out = save_run_artifacts(EVAL_DIR, "lstm_bag", y_test, probs_mean, notes=f"Mean of {len(paths)} LSTM bags")
+    out = save_run_artifacts(EVAL_DIR, "lstm_bag", y_test, probs_mean, eval_time_ns_total=int(total_elapsed), notes=f"Mean of {len(paths)} LSTM bags")
     print_done("lstm_bag", out)
 
 def eval_bagged_xgb():
@@ -397,11 +399,15 @@ def eval_bagged_xgb():
     if not paths:
         print("[xgb_bag] skipped (no bag models found)."); return
     probs_bags = []
+    total_elapsed = 0
+    def _pp(m, X): return m.predict_proba(X)[:, 1]
     for p in paths:
         m = joblib.load(p)
-        probs_bags.append(m.predict_proba(X_test_flat)[:, 1])
+        elapsed_sub, probs = time_inference_ns(_pp, m, X_test_flat)
+        probs_bags.append(probs)
+        total_elapsed += elapsed_sub
     probs_mean = np.mean(np.stack(probs_bags, axis=0), axis=0)
-    out = save_run_artifacts(EVAL_DIR, "xgb_bag", y_test, probs_mean, notes=f"Mean of {len(paths)} XGB bags (flattened)")
+    out = save_run_artifacts(EVAL_DIR, "xgb_bag", y_test, probs_mean, eval_time_ns_total=int(total_elapsed), notes=f"Mean of {len(paths)} XGB bags (flattened)")
     print_done("xgb_bag", out)
 
 # -----------------------------
@@ -409,24 +415,29 @@ def eval_bagged_xgb():
 # -----------------------------
 def eval_ensemble_lstm_xgb():
     # Need both component models
-    lstm_path = os.path.join(MODELS_DIR, "model_lstm.pt")
-    xgb_path  = os.path.join(MODELS_DIR, "model_xgb.pkl")
+    lstm_path = os.path.join(MODELS_DIR, "LSTM.pt")  # Updated to match the actual LSTM model file name
+    xgb_path  = os.path.join(MODELS_DIR, "XGBoost.json")  # Updated to match the actual XGBoost model file name
     if not (os.path.exists(lstm_path) and os.path.exists(xgb_path)):
-        print("[ensemble_avg] skipped (needs model_lstm.pt and model_xgb.json)."); return
+        print("[ensemble_avg] skipped (needs LSTM.pt and XGBoost.json)."); return
 
     # LSTM probs
     lstm = TabularLSTM().to(DEVICE)
     lstm.load_state_dict(torch.load(lstm_path, map_location=DEVICE))
     test_loader = DataLoader(SeqDS(X_test_raw, y_test), batch_size=BATCH_SIZE, shuffle=False)
-    _, probs_lstm = time_inference_ns(infer_probs_seq, lstm, test_loader, DEVICE)
+    elapsed_lstm, probs_lstm = time_inference_ns(infer_probs_seq, lstm, test_loader, DEVICE)
 
     # XGB probs
-    xgb = XGBClassifier(); xgb.load_model(xgb_path)
+    if xgb_path.endswith(".pkl"):
+        xgb = joblib.load(xgb_path)
+    else:
+        xgb = XGBClassifier()
+        xgb.load_model(xgb_path)
     def _pp(m, X): return m.predict_proba(X)[:, 1]
-    _, probs_xgb = time_inference_ns(_pp, xgb, X_test_flat)
+    elapsed_xgb, probs_xgb = time_inference_ns(_pp, xgb, X_test_flat)
 
     probs_ens = (probs_lstm + probs_xgb) / 2.0
-    out = save_run_artifacts(EVAL_DIR, "ensemble_avg", y_test, probs_ens, notes="Average of LSTM and XGB")
+    total_elapsed = elapsed_lstm + elapsed_xgb
+    out = save_run_artifacts(EVAL_DIR, "ensemble_avg", y_test, probs_ens, eval_time_ns_total=int(total_elapsed), notes="Average of LSTM and XGB")
     print_done("ensemble_avg", out)
 
 # -----------------------------

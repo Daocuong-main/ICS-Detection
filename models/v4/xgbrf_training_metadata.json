@@ -18,7 +18,7 @@
     157449,
     50
   ],
-  "train_time_ns_total": 1926600674,
+  "train_time_ns_total": 1836221999,
   "seed": 42,
   "paths": {
     "model": "models/v4/xgbrf.pkl"
